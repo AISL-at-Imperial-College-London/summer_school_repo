@@ -1,0 +1,1224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manual Temperature Control Challenge</title>
+  <style>
+    :root {
+      --bg: #07111f;
+      --panel: #111d2f;
+      --panel-2: #16263b;
+      --text: #eef5ff;
+      --muted: #9bb0c7;
+      --accent: #4cc9f0;
+      --good: #7cf29a;
+      --warning: #ffd166;
+      --danger: #ff6b6b;
+      --orange: #ff7043;
+      --border: rgba(255,255,255,0.12);
+      --shadow: 0 20px 45px rgba(0,0,0,0.28);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 16% 10%, rgba(76,201,240,0.14), transparent 32%),
+        radial-gradient(circle at 84% 0%, rgba(124,242,154,0.10), transparent 28%),
+        var(--bg);
+    }
+
+    button { font: inherit; }
+
+    .page {
+      width: min(1440px, 100%);
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .hero {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: clamp(1.7rem, 3vw, 2.6rem);
+      letter-spacing: -0.04em;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      max-width: 900px;
+      line-height: 1.5;
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: rgba(255,255,255,0.04);
+      color: var(--muted);
+      white-space: nowrap;
+      font-size: 0.86rem;
+    }
+
+    .card {
+      background: linear-gradient(180deg, rgba(22,38,59,0.98), rgba(13,25,42,0.98));
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .game {
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(100px, 1fr));
+      gap: 10px;
+    }
+
+    .metric {
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.035);
+      border-radius: 14px;
+      padding: 12px;
+      min-height: 82px;
+    }
+
+    .metric-label {
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 5px;
+    }
+
+    .metric-value {
+      font-size: clamp(1.2rem, 2.2vw, 1.95rem);
+      font-weight: 760;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .main-stage {
+      display: grid;
+      grid-template-columns: minmax(300px, 0.9fr) minmax(520px, 2fr);
+      gap: 14px;
+      min-height: 500px;
+    }
+
+    .process-panel,
+    .plot-panel {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: rgba(0,0,0,0.16);
+    }
+
+    .process-panel {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 12px;
+      overflow: hidden;
+    }
+
+    .process-heading {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section-title {
+      margin: 0;
+      font-size: 0.82rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .process-status {
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 750;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      transition: 180ms ease;
+    }
+
+    .process-status.good {
+      color: var(--good);
+      border-color: rgba(124,242,154,0.45);
+      background: rgba(124,242,154,0.08);
+    }
+
+    .process-status.cold {
+      color: #79c8ff;
+      border-color: rgba(121,200,255,0.45);
+      background: rgba(121,200,255,0.08);
+    }
+
+    .process-status.hot {
+      color: var(--danger);
+      border-color: rgba(255,107,107,0.45);
+      background: rgba(255,107,107,0.08);
+    }
+
+    .plant-scene {
+      position: relative;
+      min-height: 350px;
+      display: grid;
+      place-items: center;
+      padding: 16px 34px 30px 8px;
+    }
+
+    .reactor-group {
+      position: relative;
+      width: 330px;
+      height: 300px;
+      display: grid;
+      place-items: center;
+      transform-origin: 50% 72%;
+    }
+
+    .reactor-group.hot {
+      animation: vessel-shake 0.14s linear infinite;
+    }
+
+    @keyframes vessel-shake {
+      0%, 100% { transform: translate(0, 0) rotate(0deg); }
+      25% { transform: translate(-2px, 1px) rotate(-0.6deg); }
+      50% { transform: translate(2px, -1px) rotate(0.5deg); }
+      75% { transform: translate(-1px, -1px) rotate(0.4deg); }
+    }
+
+    .vessel {
+      width: 158px;
+      height: 244px;
+      border: 4px solid #8aa2ba;
+      border-radius: 32px 32px 44px 44px;
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0.13), rgba(255,255,255,0.03));
+      box-shadow: inset 0 0 24px rgba(0,0,0,0.25), 0 10px 24px rgba(0,0,0,0.25);
+      transition: 180ms ease;
+      z-index: 4;
+    }
+
+    .reactor-group.good .vessel {
+      border-color: #a5c7b1;
+      box-shadow: inset 0 0 24px rgba(0,0,0,0.25), 0 0 24px rgba(124,242,154,0.14);
+    }
+
+    .reactor-group.cold .vessel {
+      border-color: #85bde6;
+      box-shadow: inset 0 0 24px rgba(0,0,0,0.25), 0 0 24px rgba(76,201,240,0.18);
+    }
+
+    .reactor-group.hot .vessel {
+      border-color: #ff8585;
+      box-shadow: inset 0 0 24px rgba(0,0,0,0.25), 0 0 32px rgba(255,107,107,0.28);
+    }
+
+    .liquid {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 72%;
+      background: linear-gradient(180deg, rgba(76,201,240,0.62), rgba(76,201,240,0.22));
+      transition: background 180ms ease;
+    }
+
+
+    .stirrer-shaft {
+      position: absolute;
+      left: 50%;
+      top: 88px;
+      width: 6px;
+      height: 86px;
+      transform: translateX(-50%);
+      background: linear-gradient(180deg, #c7d3e0, #8da3bb);
+      border-radius: 999px;
+      z-index: 4;
+      box-shadow: 0 0 6px rgba(255,255,255,0.12);
+    }
+
+    .stirrer-hub {
+      position: absolute;
+      left: 50%;
+      top: 174px;
+      width: 18px;
+      height: 18px;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      background: #dbe5f0;
+      border: 3px solid #7e92a8;
+      z-index: 6;
+      box-shadow: 0 0 8px rgba(255,255,255,0.12);
+    }
+
+    .stirrer-blades {
+      position: absolute;
+      left: 50%;
+      top: 174px;
+      width: 76px;
+      height: 76px;
+      transform: translate(-50%, -50%);
+      z-index: 5;
+      animation: stir-spin 1.1s linear infinite;
+      animation-play-state: paused;
+      transform-origin: 50% 50%;
+    }
+
+    .reactor-group.running .stirrer-blades {
+      animation-play-state: running;
+    }
+
+    .stirrer-blades::before,
+    .stirrer-blades::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 66px;
+      height: 10px;
+      background: linear-gradient(90deg, #9eb2c8, #dce5f0 50%, #9eb2c8);
+      border-radius: 999px;
+      box-shadow: 0 0 6px rgba(255,255,255,0.12);
+    }
+
+    .stirrer-blades::before {
+      transform: translate(-50%, -50%);
+    }
+
+    .stirrer-blades::after {
+      transform: translate(-50%, -50%) rotate(90deg);
+    }
+
+    @keyframes stir-spin {
+      from { transform: translate(-50%, -50%) rotate(0deg); }
+      to { transform: translate(-50%, -50%) rotate(360deg); }
+    }
+
+    .face {
+      position: absolute;
+      width: 82px;
+      height: 82px;
+      left: 50%;
+      top: 8px;
+      transform: translateX(-50%);
+      border-radius: 50%;
+      background: rgba(255, 224, 100, 0.92);
+      border: 3px solid rgba(66,46,10,0.35);
+      z-index: 8;
+      box-shadow: inset 0 -6px 0 rgba(139,96,0,0.11);
+      transition: 180ms ease;
+    }
+
+    .eye {
+      position: absolute;
+      width: 8px;
+      height: 12px;
+      top: 25px;
+      border-radius: 50%;
+      background: #31250b;
+      transition: 180ms ease;
+    }
+
+    .eye.left { left: 21px; }
+    .eye.right { right: 21px; }
+
+    .mouth {
+      position: absolute;
+      left: 50%;
+      top: 48px;
+      width: 36px;
+      height: 18px;
+      transform: translateX(-50%);
+      border-bottom: 5px solid #6c4910;
+      border-radius: 0 0 30px 30px;
+      transition: 180ms ease;
+    }
+
+    .reactor-group.cold .face {
+      background: rgba(168,222,255,0.94);
+    }
+
+    .reactor-group.cold .mouth {
+      top: 55px;
+      height: 15px;
+      border-bottom: 0;
+      border-top: 5px solid #36536a;
+      border-radius: 30px 30px 0 0;
+    }
+
+    .reactor-group.hot .face {
+      background: rgba(255,161,112,0.96);
+    }
+
+    .reactor-group.hot .eye {
+      height: 8px;
+      top: 27px;
+      transform: rotate(16deg);
+    }
+
+    .reactor-group.hot .eye.right { transform: rotate(-16deg); }
+
+    .reactor-group.hot .mouth {
+      width: 24px;
+      height: 24px;
+      top: 47px;
+      border: 4px solid #6f2514;
+      border-radius: 50%;
+      background: rgba(60,12,5,0.25);
+    }
+
+    .heat-waves {
+      position: absolute;
+      left: 50%;
+      bottom: 20px;
+      transform: translateX(-50%) translateY(8px);
+      font-size: 1.45rem;
+      opacity: 0;
+      transition: 140ms ease;
+      z-index: 6;
+    }
+
+    .heat-waves.on {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .steam {
+      position: absolute;
+      top: -4px;
+      left: 50%;
+      width: 64px;
+      height: 80px;
+      transform: translateX(-50%);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .steam span {
+      position: absolute;
+      bottom: 0;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.4);
+      filter: blur(1px);
+      animation: steam-rise 1.25s ease-out infinite;
+    }
+
+    .steam span:nth-child(1) { left: 5px; }
+    .steam span:nth-child(2) { left: 26px; animation-delay: 0.35s; }
+    .steam span:nth-child(3) { right: 4px; animation-delay: 0.7s; }
+
+    .reactor-group.hot .steam { opacity: 1; }
+
+    @keyframes steam-rise {
+      from { transform: translateY(16px) scale(0.7); opacity: 0; }
+      25% { opacity: 0.65; }
+      to { transform: translateY(-48px) scale(1.55); opacity: 0; }
+    }
+
+    .snowflake {
+      position: absolute;
+      top: 32px;
+      left: 14px;
+      font-size: 1.45rem;
+      opacity: 0;
+      animation: cold-drift 1.8s ease-in-out infinite;
+      z-index: 7;
+    }
+
+    .snowflake.two { left: auto; right: 15px; top: 78px; animation-delay: 0.7s; }
+    .reactor-group.cold .snowflake { opacity: 0.9; }
+
+    @keyframes cold-drift {
+      0%,100% { transform: translateY(0) rotate(0); }
+      50% { transform: translateY(8px) rotate(18deg); }
+    }
+
+    .inlet-pipe {
+      position: absolute;
+      width: 96px;
+      height: 18px;
+      right: calc(50% + 76px);
+      top: 142px;
+      border-top: 9px solid #8095aa;
+      border-left: 9px solid #8095aa;
+      border-radius: 15px 0 0 0;
+      z-index: 3;
+    }
+
+    .feed-stream {
+      position: absolute;
+      width: 94px;
+      height: 10px;
+      right: calc(50% + 77px);
+      top: 143px;
+      border-radius: 8px;
+      opacity: 1;
+      background: repeating-linear-gradient(
+        to right,
+        rgba(76,201,240,0.96) 0,
+        rgba(76,201,240,0.96) 14px,
+        rgba(76,201,240,0.22) 14px,
+        rgba(76,201,240,0.22) 25px
+      );
+      background-size: 50px 100%;
+      animation: feed-flow 0.55s linear infinite;
+      filter: drop-shadow(0 0 7px rgba(76,201,240,0.5));
+      z-index: 4;
+    }
+
+    .feed-stream::after {
+      content: "";
+      position: absolute;
+      right: -8px;
+      top: -4px;
+      border-top: 9px solid transparent;
+      border-bottom: 9px solid transparent;
+      border-left: 12px solid rgba(76,201,240,0.96);
+    }
+
+    @keyframes feed-flow { to { background-position-x: 50px; } }
+
+    .stream-label {
+      position: absolute;
+      padding: 4px 8px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: rgba(7,17,31,0.88);
+      color: var(--text);
+      font-size: 0.72rem;
+      font-weight: 760;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .feed-label {
+      right: calc(50% + 112px);
+      top: 105px;
+      color: var(--accent);
+    }
+
+    .product-label {
+      left: calc(50% + 105px);
+      top: 158px;
+      color: var(--good);
+    }
+
+    .outlet-pipe {
+      position: absolute;
+      width: 80px;
+      height: 18px;
+      left: calc(50% + 66px);
+      top: 183px;
+      border-top: 9px solid #8095aa;
+      border-right: 9px solid #8095aa;
+      border-radius: 0 15px 0 0;
+      z-index: 3;
+    }
+
+    .product-stream {
+      position: absolute;
+      width: 12px;
+      height: 73px;
+      left: calc(50% + 137px);
+      top: 201px;
+      border-radius: 0 0 8px 8px;
+      opacity: 0.12;
+      background: repeating-linear-gradient(
+        to bottom,
+        rgba(124,242,154,0.95) 0,
+        rgba(124,242,154,0.95) 12px,
+        rgba(124,242,154,0.2) 12px,
+        rgba(124,242,154,0.2) 22px
+      );
+      background-size: 100% 44px;
+      animation: product-flow 0.55s linear infinite;
+      animation-play-state: paused;
+      transition: 180ms ease;
+      z-index: 2;
+    }
+
+    .product-stream.active {
+      opacity: 1;
+      animation-play-state: running;
+      filter: drop-shadow(0 0 7px rgba(124,242,154,0.55));
+    }
+
+    @keyframes product-flow { to { background-position-y: 44px; } }
+
+    .state-explanation {
+      margin: 0;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.4;
+      min-height: 40px;
+      font-size: 0.9rem;
+    }
+
+    .heater-button {
+      width: 100%;
+      min-height: 86px;
+      border: 2px solid rgba(255,255,255,0.16);
+      border-radius: 18px;
+      background: linear-gradient(180deg, #29384b, #1a2636);
+      color: var(--text);
+      font-size: 1.14rem;
+      font-weight: 820;
+      cursor: pointer;
+      box-shadow: inset 0 -5px 0 rgba(0,0,0,0.28), 0 12px 25px rgba(0,0,0,0.25);
+      transition: 120ms ease;
+    }
+
+    .heater-button:active {
+      transform: translateY(2px);
+      box-shadow: inset 0 -2px 0 rgba(0,0,0,0.28);
+    }
+
+    .heater-button.on {
+      background: linear-gradient(180deg, #ff875f, #d94b2b);
+      border-color: rgba(255,255,255,0.35);
+      box-shadow: inset 0 -5px 0 rgba(110,28,12,0.38), 0 0 26px rgba(255,112,67,0.3);
+    }
+
+    .heater-button:disabled { cursor: not-allowed; opacity: 0.55; }
+    .keyboard-note { text-align: center; color: var(--muted); font-size: 0.8rem; }
+
+    .plot-panel {
+      padding: 10px;
+      min-width: 0;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      min-height: 475px;
+      border-radius: 12px;
+    }
+
+    .rules-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .rule {
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--muted);
+      background: rgba(255,255,255,0.025);
+      text-align: center;
+      font-size: 0.84rem;
+    }
+
+    .rule strong { color: var(--text); }
+
+    .message {
+      min-height: 54px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.035);
+      color: var(--muted);
+    }
+
+    .message.good { color: var(--good); border-color: rgba(124,242,154,0.35); }
+    .message.bad { color: var(--danger); border-color: rgba(255,107,107,0.35); }
+
+    .footer-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .primary-btn,
+    .secondary-btn {
+      border-radius: 14px;
+      padding: 14px 18px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: 160ms ease;
+    }
+
+    .primary-btn {
+      border: 0;
+      background: linear-gradient(135deg, var(--accent), #6ea8fe);
+      color: #04101c;
+    }
+
+    .secondary-btn {
+      border: 1px solid var(--border);
+      color: var(--text);
+      background: rgba(255,255,255,0.045);
+    }
+
+    .primary-btn:hover,
+    .secondary-btn:hover { transform: translateY(-1px); filter: brightness(1.04); }
+
+    @media (max-width: 1040px) {
+      .hero { align-items: flex-start; flex-direction: column; }
+      .pill-row { justify-content: flex-start; }
+      .main-stage { grid-template-columns: 1fr; }
+      .plant-scene { min-height: 340px; }
+      .plot-panel { min-height: 420px; }
+      canvas { min-height: 400px; }
+    }
+
+    @media (max-width: 760px) {
+      .page { padding: 14px; }
+      .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .rules-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .footer-actions { grid-template-columns: 1fr; }
+      .plant-scene { transform: scale(0.92); margin: -10px -18px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <div>
+        <h1>Manual Temperature Control Challenge</h1>
+        <p class="subtitle">Keep the reactor between 90°C and 100°C using only an ON/OFF heater. Production stops when the vessel is too cold, while excessive temperature makes the reactor unstable.</p>
+      </div>
+      <div class="pill-row" aria-label="fixed challenge settings">
+        <div class="pill">τ = 6 s</div>
+        <div class="pill">Disturbance = 50%</div>
+        <div class="pill">Spacebar toggles heater</div>
+      </div>
+    </header>
+
+    <section class="card game">
+      <div class="metrics">
+        <div class="metric">
+          <div class="metric-label">Temperature</div>
+          <div class="metric-value" id="temperature">95.0°C</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Time remaining</div>
+          <div class="metric-value" id="timeRemaining">90.0 s</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Score</div>
+          <div class="metric-value" id="score">100.0</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Heater switches</div>
+          <div class="metric-value" id="switches">0</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Out of bounds</div>
+          <div class="metric-value" id="outOfBounds">0.0 s</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Best score</div>
+          <div class="metric-value" id="bestScore">—</div>
+        </div>
+      </div>
+
+      <div class="main-stage">
+        <section class="process-panel" aria-label="animated reactor display">
+          <div class="process-heading">
+            <h2 class="section-title">Reactor status</h2>
+            <div class="process-status good" id="processStatus">Ready</div>
+          </div>
+
+          <div class="plant-scene">
+            <div class="reactor-group good" id="reactorGroup">
+              <div class="steam" aria-hidden="true"><span></span><span></span><span></span></div>
+              <div class="snowflake" aria-hidden="true">❄</div>
+              <div class="snowflake two" aria-hidden="true">❄</div>
+              <div class="inlet-pipe" aria-hidden="true"></div>
+              <div class="feed-stream" aria-hidden="true"></div>
+              <div class="stream-label feed-label">Feed</div>
+              <div class="stream-label product-label">Product</div>
+              <div class="vessel" aria-label="heated reactor vessel">
+                <div class="liquid" id="liquid"></div>
+                <div class="stirrer-shaft" aria-hidden="true"></div>
+                <div class="stirrer-blades" aria-hidden="true"></div>
+                <div class="stirrer-hub" aria-hidden="true"></div>
+                <div class="face" aria-hidden="true">
+                  <span class="eye left"></span>
+                  <span class="eye right"></span>
+                  <span class="mouth"></span>
+                </div>
+                <div class="heat-waves" id="heatWaves">♨</div>
+              </div>
+              <div class="outlet-pipe" aria-hidden="true"></div>
+              <div class="product-stream active" id="productStream" aria-hidden="true"></div>
+            </div>
+          </div>
+
+          <p class="state-explanation" id="stateExplanation">Temperature is in range. Product is flowing normally.</p>
+
+          <button id="heaterButton" class="heater-button" disabled>HEATER OFF</button>
+          <div class="keyboard-note">Click the button or press the spacebar · each toggle costs 1 point</div>
+        </section>
+
+        <section class="plot-panel">
+          <canvas id="plot" aria-label="temperature history chart"></canvas>
+        </section>
+      </div>
+
+      <div class="rules-strip" aria-label="game rules">
+        <div class="rule"><strong>Target:</strong> 90–100°C</div>
+        <div class="rule"><strong>Start:</strong> 95°C and 100 points</div>
+        <div class="rule"><strong>Toggle:</strong> −1 point</div>
+        <div class="rule"><strong>Outside band:</strong> −5 points/s</div>
+      </div>
+
+      <div class="message" id="message">Start the run, then anticipate the process rather than reacting late.</div>
+
+      <div class="footer-actions">
+        <button id="startButton" class="primary-btn">Start new run</button>
+        <button id="resetBestButton" class="secondary-btn">Reset best score</button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const config = {
+        duration: 90,
+        lowerBound: 90,
+        upperBound: 100,
+        ambientTemperature: 70,
+        heaterLift: 42,
+        initialTemperature: 95,
+        initialScore: 100,
+        switchPenalty: 1,
+        outOfBoundsPenaltyPerSecond: 5,
+        disturbanceSampleInterval: 1.0,
+        disturbanceStrength: 50,
+        disturbanceMaxStd: 45,
+        timeConstant: 6,
+        integrationStep: 0.02,
+        plotMin: 76,
+        plotMax: 116
+      };
+
+      const els = {
+        temperature: document.getElementById("temperature"),
+        timeRemaining: document.getElementById("timeRemaining"),
+        score: document.getElementById("score"),
+        switches: document.getElementById("switches"),
+        outOfBounds: document.getElementById("outOfBounds"),
+        bestScore: document.getElementById("bestScore"),
+        heaterButton: document.getElementById("heaterButton"),
+        startButton: document.getElementById("startButton"),
+        resetBestButton: document.getElementById("resetBestButton"),
+        message: document.getElementById("message"),
+        plot: document.getElementById("plot"),
+        liquid: document.getElementById("liquid"),
+        heatWaves: document.getElementById("heatWaves"),
+        reactorGroup: document.getElementById("reactorGroup"),
+        processStatus: document.getElementById("processStatus"),
+        stateExplanation: document.getElementById("stateExplanation"),
+        productStream: document.getElementById("productStream")
+      };
+
+      const disturbanceStd = Math.pow(config.disturbanceStrength / 100, 1.3) * config.disturbanceMaxStd;
+
+      const state = {
+        running: false,
+        heaterOn: false,
+        temperature: config.initialTemperature,
+        disturbance: 0,
+        nextDisturbanceSample: 0,
+        elapsed: 0,
+        inBandTime: 0,
+        outOfBandTime: 0,
+        switchCount: 0,
+        score: config.initialScore,
+        history: [],
+        lastFrameTime: null,
+        accumulator: 0,
+        normalSpare: null
+      };
+
+      const ctx = els.plot.getContext("2d");
+
+      const storage = {
+        get(key) {
+          try { return window.localStorage.getItem(key); }
+          catch (_) { return null; }
+        },
+        set(key, value) {
+          try { window.localStorage.setItem(key, value); }
+          catch (_) { /* Best score is optional in restricted embed contexts. */ }
+        },
+        remove(key) {
+          try { window.localStorage.removeItem(key); }
+          catch (_) { /* No action needed. */ }
+        }
+      };
+
+      function clamp(value, min, max) {
+        return Math.min(max, Math.max(min, value));
+      }
+
+      function gaussianRandom() {
+        if (state.normalSpare !== null) {
+          const spare = state.normalSpare;
+          state.normalSpare = null;
+          return spare;
+        }
+        let u = 0;
+        let v = 0;
+        while (u === 0) u = Math.random();
+        while (v === 0) v = Math.random();
+        const magnitude = Math.sqrt(-2.0 * Math.log(u));
+        const angle = 2.0 * Math.PI * v;
+        state.normalSpare = magnitude * Math.sin(angle);
+        return magnitude * Math.cos(angle);
+      }
+
+      function sampleDisturbance() {
+        state.disturbance = disturbanceStd * gaussianRandom();
+      }
+
+      function updateScore() {
+        state.score = config.initialScore
+          - config.switchPenalty * state.switchCount
+          - config.outOfBoundsPenaltyPerSecond * state.outOfBandTime;
+      }
+
+      function simulateStep(dt) {
+        while (state.elapsed >= state.nextDisturbanceSample) {
+          sampleDisturbance();
+          state.nextDisturbanceSample += config.disturbanceSampleInterval;
+        }
+
+        const equilibrium = config.ambientTemperature
+          + (state.heaterOn ? config.heaterLift : 0)
+          + state.disturbance;
+        const derivative = (equilibrium - state.temperature) / config.timeConstant;
+        state.temperature += derivative * dt;
+        state.elapsed += dt;
+
+        if (state.temperature >= config.lowerBound && state.temperature <= config.upperBound) {
+          state.inBandTime += dt;
+        } else {
+          state.outOfBandTime += dt;
+        }
+
+        updateScore();
+
+        const last = state.history[state.history.length - 1];
+        if (!last || state.elapsed - last.t >= 0.08 || state.elapsed >= config.duration) {
+          state.history.push({
+            t: state.elapsed,
+            T: state.temperature,
+            heater: state.heaterOn,
+            disturbance: state.disturbance
+          });
+        }
+
+        if (state.elapsed >= config.duration) finishRun();
+      }
+
+      function startRun() {
+        state.running = true;
+        state.heaterOn = false;
+        state.temperature = config.initialTemperature;
+        state.disturbance = 0;
+        state.nextDisturbanceSample = 0;
+        state.elapsed = 0;
+        state.inBandTime = 0;
+        state.outOfBandTime = 0;
+        state.switchCount = 0;
+        state.score = config.initialScore;
+        state.history = [{ t: 0, T: state.temperature, heater: false, disturbance: 0 }];
+        state.lastFrameTime = null;
+        state.accumulator = 0;
+        state.normalSpare = null;
+
+        els.heaterButton.disabled = false;
+        els.startButton.textContent = "Restart run";
+        els.message.textContent = "Control is active. Watch the trend and switch before the limit is reached.";
+        els.message.className = "message";
+
+        setHeater(false);
+        updateUI();
+        requestAnimationFrame(frame);
+      }
+
+      function finishRun() {
+        if (!state.running) return;
+        state.running = false;
+        state.heaterOn = false;
+        els.heaterButton.disabled = true;
+        setHeater(false);
+
+        const inBandPercent = 100 * state.inBandTime / config.duration;
+        const bestText = storage.get("temperatureControlBestV8");
+        const best = bestText === null ? Number.NEGATIVE_INFINITY : Number(bestText);
+        const finalScore = Number(state.score.toFixed(1));
+        const switchCost = config.switchPenalty * state.switchCount;
+        const boundsCost = config.outOfBoundsPenaltyPerSecond * state.outOfBandTime;
+
+        if (finalScore > best) {
+          storage.set("temperatureControlBestV8", String(finalScore));
+          els.message.textContent = `New best: ${finalScore.toFixed(1)} points. Switching cost ${switchCost.toFixed(1)} and ${state.outOfBandTime.toFixed(1)} s outside the band cost ${boundsCost.toFixed(1)}.`;
+          els.message.className = "message good";
+        } else if (inBandPercent >= 90) {
+          els.message.textContent = `Strong run: ${inBandPercent.toFixed(1)}% in range, ${state.switchCount} switches, final score ${finalScore.toFixed(1)}.`;
+          els.message.className = "message good";
+        } else {
+          els.message.textContent = `Run complete: ${state.outOfBandTime.toFixed(1)} s outside the band and ${state.switchCount} switches. Final score: ${finalScore.toFixed(1)}.`;
+          els.message.className = "message bad";
+        }
+        updateUI();
+      }
+
+      function setHeater(on) {
+        state.heaterOn = Boolean(on) && state.running;
+        els.heaterButton.textContent = state.heaterOn ? "HEATER ON" : "HEATER OFF";
+        els.heaterButton.classList.toggle("on", state.heaterOn);
+        els.heatWaves.classList.toggle("on", state.heaterOn);
+      }
+
+      function toggleHeater() {
+        if (!state.running) return;
+        state.switchCount += 1;
+        setHeater(!state.heaterOn);
+        updateScore();
+        updateUI();
+      }
+
+      function frame(timestamp) {
+        if (!state.running) return;
+        if (state.lastFrameTime === null) state.lastFrameTime = timestamp;
+
+        const realDt = Math.min(0.1, (timestamp - state.lastFrameTime) / 1000);
+        state.lastFrameTime = timestamp;
+        state.accumulator += realDt;
+
+        while (state.accumulator >= config.integrationStep && state.running) {
+          simulateStep(config.integrationStep);
+          state.accumulator -= config.integrationStep;
+        }
+
+        updateUI();
+        if (state.running) requestAnimationFrame(frame);
+      }
+
+      function processState() {
+        if (state.temperature < config.lowerBound) return "cold";
+        if (state.temperature > config.upperBound) return "hot";
+        return "good";
+      }
+
+      function updateAnimation() {
+        const status = processState();
+        els.reactorGroup.classList.remove("good", "cold", "hot", "running");
+        els.reactorGroup.classList.add(status);
+        if (state.running) els.reactorGroup.classList.add("running");
+        els.processStatus.classList.remove("good", "cold", "hot");
+        els.processStatus.classList.add(status);
+
+        if (status === "cold") {
+          els.processStatus.textContent = "Too cold";
+          els.stateExplanation.textContent = "Reaction rate is too low. Production has stopped.";
+          els.productStream.classList.remove("active");
+        } else if (status === "hot") {
+          els.processStatus.textContent = "Too hot";
+          els.stateExplanation.textContent = "Overtemperature: the vessel is shaking and production is unsafe.";
+          els.productStream.classList.remove("active");
+        } else {
+          els.processStatus.textContent = state.running ? "Producing" : "Ready";
+          els.stateExplanation.textContent = "Temperature is in range. Product is flowing normally.";
+          els.productStream.classList.add("active");
+        }
+      }
+
+      function updateUI() {
+        els.temperature.textContent = `${state.temperature.toFixed(1)}°C`;
+        els.timeRemaining.textContent = `${Math.max(0, config.duration - state.elapsed).toFixed(1)} s`;
+        els.score.textContent = state.score.toFixed(1);
+        els.switches.textContent = String(state.switchCount);
+        els.outOfBounds.textContent = `${state.outOfBandTime.toFixed(1)} s`;
+        const best = storage.get("temperatureControlBestV8");
+        els.bestScore.textContent = best === null ? "—" : Number(best).toFixed(1);
+
+        const normalised = clamp((state.temperature - config.plotMin) / (config.plotMax - config.plotMin), 0, 1);
+        const hue = clamp(210 - 205 * normalised, 5, 210);
+        els.liquid.style.background = `linear-gradient(180deg, hsla(${hue}, 88%, 64%, 0.76), hsla(${hue}, 82%, 44%, 0.27))`;
+
+        if (state.temperature > config.upperBound) {
+          els.temperature.style.color = "var(--danger)";
+        } else if (state.temperature < config.lowerBound) {
+          els.temperature.style.color = "#79c8ff";
+        } else {
+          els.temperature.style.color = "var(--good)";
+        }
+
+        updateAnimation();
+        drawPlot();
+      }
+
+      function resizeCanvasToDisplaySize(canvas) {
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+        const width = Math.max(1, Math.round(rect.width * dpr));
+        const height = Math.max(1, Math.round(rect.height * dpr));
+        if (canvas.width !== width || canvas.height !== height) {
+          canvas.width = width;
+          canvas.height = height;
+        }
+        return { width, height, dpr };
+      }
+
+      function drawPlot() {
+        const { width, height, dpr } = resizeCanvasToDisplaySize(els.plot);
+        const pad = { left: 62 * dpr, right: 18 * dpr, top: 20 * dpr, bottom: 42 * dpr };
+        const innerW = width - pad.left - pad.right;
+        const innerH = height - pad.top - pad.bottom;
+
+        const x = t => pad.left + innerW * t / config.duration;
+        const y = T => pad.top + innerH * (config.plotMax - T) / (config.plotMax - config.plotMin);
+
+        ctx.clearRect(0, 0, width, height);
+        ctx.fillStyle = "rgba(3, 10, 18, 0.55)";
+        ctx.fillRect(0, 0, width, height);
+
+        ctx.fillStyle = "rgba(124,242,154,0.10)";
+        ctx.fillRect(pad.left, y(config.upperBound), innerW, y(config.lowerBound) - y(config.upperBound));
+
+        ctx.strokeStyle = "rgba(255,255,255,0.11)";
+        ctx.lineWidth = 1 * dpr;
+        ctx.font = `${12 * dpr}px system-ui`;
+        ctx.fillStyle = "rgba(220,235,249,0.68)";
+        ctx.textAlign = "right";
+        ctx.textBaseline = "middle";
+
+        [80, 90, 95, 100, 110].forEach(temp => {
+          const py = y(temp);
+          ctx.beginPath();
+          ctx.moveTo(pad.left, py);
+          ctx.lineTo(width - pad.right, py);
+          ctx.stroke();
+          ctx.fillText(`${temp}°C`, pad.left - 8 * dpr, py);
+        });
+
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        [0, 15, 30, 45, 60, 75, 90].forEach(t => {
+          const px = x(t);
+          ctx.beginPath();
+          ctx.moveTo(px, pad.top);
+          ctx.lineTo(px, height - pad.bottom);
+          ctx.stroke();
+          ctx.fillText(`${t}s`, px, height - pad.bottom + 10 * dpr);
+        });
+
+        ctx.strokeStyle = "rgba(124,242,154,0.85)";
+        ctx.lineWidth = 1.5 * dpr;
+        [config.lowerBound, config.upperBound].forEach(bound => {
+          ctx.setLineDash([6 * dpr, 5 * dpr]);
+          ctx.beginPath();
+          ctx.moveTo(pad.left, y(bound));
+          ctx.lineTo(width - pad.right, y(bound));
+          ctx.stroke();
+        });
+        ctx.setLineDash([]);
+
+        if (state.history.length > 1) {
+          for (let i = 1; i < state.history.length; i++) {
+            const a = state.history[i - 1];
+            const b = state.history[i];
+            if (a.heater) {
+              ctx.fillStyle = "rgba(255,112,67,0.10)";
+              ctx.fillRect(x(a.t), pad.top, Math.max(1, x(b.t) - x(a.t)), innerH);
+            }
+          }
+
+          ctx.strokeStyle = "#4cc9f0";
+          ctx.lineWidth = 3 * dpr;
+          ctx.lineJoin = "round";
+          ctx.lineCap = "round";
+          ctx.beginPath();
+          state.history.forEach((point, i) => {
+            const px = x(point.t);
+            const py = y(point.T);
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          });
+          ctx.stroke();
+        }
+
+        ctx.fillStyle = "rgba(238,245,255,0.78)";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "top";
+        ctx.font = `${13 * dpr}px system-ui`;
+        ctx.fillText("Temperature history", pad.left, 4 * dpr);
+
+        ctx.textAlign = "right";
+        ctx.fillStyle = "rgba(255,112,67,0.85)";
+        ctx.fillText("orange shading = heater on", width - pad.right, 4 * dpr);
+      }
+
+      els.heaterButton.addEventListener("click", toggleHeater);
+      els.startButton.addEventListener("click", startRun);
+      els.resetBestButton.addEventListener("click", () => {
+        storage.remove("temperatureControlBestV8");
+        updateUI();
+      });
+
+      window.addEventListener("keydown", event => {
+        if (event.code === "Space") {
+          event.preventDefault();
+          toggleHeater();
+        }
+      });
+
+      window.addEventListener("resize", drawPlot);
+      updateUI();
+    })();
+  </script>
+</body>
+</html>
