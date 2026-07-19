@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Statistics Demo: Two p-tests for Candidate Distributions</title>
+<style>
+  :root{
+    --deep:#18487d;
+    --soft:#e1eefa;
+    --orange:#fff1dc;
+    --green:#e5f5eb;
+    --purple:#eee8fa;
+    --red:#fce5e4;
+    --ink:#1d2430;
+    --muted:#5b6575;
+    --line:#d7dfea;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);background:#f6f8fb;line-height:1.4}
+  header{background:var(--deep);color:white;padding:22px 28px}
+  header h1{margin:0;font-size:26px;font-weight:700}
+  header p{margin:6px 0 0;color:#dce9f9}
+  main{max-width:1180px;margin:0 auto;padding:22px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .card{background:white;border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 4px 18px rgba(24,72,125,.08)}
+  .card h2{margin:0 0 8px;font-size:21px;color:var(--deep)}
+  .card h3{margin:14px 0 8px;font-size:16px;color:var(--deep)}
+  label{display:block;font-size:13px;color:var(--muted);margin-top:10px}
+  input,select,textarea,button{font:inherit}
+  input[type="range"]{width:100%}
+  input[type="number"],select,textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:white}
+  textarea{min-height:78px;resize:vertical}
+  button{border:0;border-radius:12px;background:var(--deep);color:white;padding:10px 14px;font-weight:700;cursor:pointer;margin-top:12px}
+  button.secondary{background:#496f9d}
+  .controls{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .result{background:var(--soft);border-left:5px solid var(--deep);padding:12px;border-radius:12px;margin-top:12px}
+  .warn{background:var(--orange);border-left:5px solid #d48618}
+  .good{background:var(--green);border-left:5px solid #2e8b57}
+  .bad{background:var(--red);border-left:5px solid #c4514d}
+  .pill{display:inline-block;padding:4px 8px;border-radius:999px;background:var(--purple);margin:3px 4px 3px 0;font-size:13px}
+  canvas{width:100%;height:260px;border:1px solid var(--line);border-radius:14px;background:white;margin-top:12px}
+  code{background:#eef3fa;padding:2px 5px;border-radius:5px}
+  .small{font-size:13px;color:var(--muted)}
+  .wide{grid-column:1 / -1}
+  .grid{grid-template-columns:1fr;max-width:900px;margin:0 auto}
+  @media (max-width:900px){.grid{grid-template-columns:1fr}.controls{grid-template-columns:1fr}.wide{grid-column:auto}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Intro Statistics Demo</h1>
+  <p>Compare one observed batch against two candidate Gaussian distributions</p>
+</header>
+<main>
+  <div class="grid">
+    <section class="card">
+      <h2>Two p-tests for a new batch</h2>
+      <p class="small">Compare the same batch against two candidate Gaussian distributions. Each p-value asks: would this batch mean be surprising under this candidate?</p>
+      <div class="controls">
+        <div>
+          <label for="muA">Candidate A mean μA: <span id="muALabel">0</span></label>
+          <input id="muA" type="range" min="-3" max="6" step="0.1" value="0" />
+        </div>
+        <div>
+          <label for="sigA">Candidate A σA: <span id="sigALabel">1</span></label>
+          <input id="sigA" type="range" min="0.3" max="3" step="0.1" value="1" />
+        </div>
+        <div>
+          <label for="muB">Candidate B mean μB: <span id="muBLabel">3</span></label>
+          <input id="muB" type="range" min="-3" max="6" step="0.1" value="3" />
+        </div>
+        <div>
+          <label for="sigB">Candidate B σB: <span id="sigBLabel">1</span></label>
+          <input id="sigB" type="range" min="0.3" max="3" step="0.1" value="1" />
+        </div>
+      </div>
+      <label for="batch">New batch values, comma-separated</label>
+      <textarea id="batch">2.1, 2.7, 3.0, 3.2, 3.7</textarea>
+      <div class="controls">
+        <button id="testBatch">Run two p-tests</button>
+        <button id="sampleFromB" class="secondary">Generate batch from B</button>
+      </div>
+      <div id="testResult" class="result"></div>
+      <canvas id="ptestPlot"></canvas>
+    </section>
+
+    <section class="card wide">
+      <h2>Interpretation</h2>
+      <span class="pill">A small p-value means surprising under that candidate.</span>
+      <span class="pill">A large p-value does not prove the candidate is true.</span>
+      <span class="pill">Two p-tests are a compatibility check, not posterior probabilities.</span>
+      <span class="pill">Increasing n makes the batch mean test more sensitive.</span>
+    </section>
+  </div>
+</main>
+<script>
+function randn(){let u=0,v=0;while(u===0)u=Math.random();while(v===0)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)}
+function mean(a){return a.reduce((s,x)=>s+x,0)/a.length}
+function erf(x){const sign=x<0?-1:1;x=Math.abs(x);const a1=.254829592,a2=-.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,p=.3275911;const t=1/(1+p*x);const y=1-(((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*Math.exp(-x*x);return sign*y}
+function normCdf(z){return .5*(1+erf(z/Math.SQRT2))}
+function normPdf(x,mu,sigma){return Math.exp(-.5*((x-mu)/sigma)**2)/(sigma*Math.sqrt(2*Math.PI))}
+function fmt(x){if(!isFinite(x))return "NA";if(Math.abs(x)>0&&Math.abs(x)<1e-3)return x.toExponential(2);return Number(x).toFixed(3)}
+function resizeCanvas(c){const r=c.getBoundingClientRect(),dpr=window.devicePixelRatio||1;c.width=Math.max(600,Math.floor(r.width*dpr));c.height=Math.floor(260*dpr);const ctx=c.getContext("2d");ctx.setTransform(dpr,0,0,dpr,0,0);return ctx}
+function parseBatch(){return document.getElementById("batch").value.split(/[\s,]+/).map(Number).filter(Number.isFinite)}
+
+function drawPtest(data){
+  const c=document.getElementById("ptestPlot"),ctx=resizeCanvas(c),w=c.clientWidth,h=260;
+  ctx.clearRect(0,0,w,h);
+  const muA=+muAEl.value,sigA=+sigAEl.value,muB=+muBEl.value,sigB=+sigBEl.value;
+  const min=Math.min(muA-4*sigA,muB-4*sigB,...data)-.2;
+  const max=Math.max(muA+4*sigA,muB+4*sigB,...data)+.2;
+  const yMax=Math.max(1/(sigA*Math.sqrt(2*Math.PI)),1/(sigB*Math.sqrt(2*Math.PI)))*1.15;
+  const X=x=>35+(x-min)/(max-min)*(w-55),Y=y=>h-35-y/yMax*(h-55);
+
+  ctx.strokeStyle="#18487d";ctx.lineWidth=1.5;ctx.beginPath();
+  ctx.moveTo(35,15);ctx.lineTo(35,h-35);ctx.lineTo(w-10,h-35);ctx.stroke();
+
+  function curve(mu,sig,col){
+    ctx.beginPath();
+    for(let i=0;i<=300;i++){
+      const x=min+(max-min)*i/300,y=normPdf(x,mu,sig);
+      if(i===0)ctx.moveTo(X(x),Y(y));else ctx.lineTo(X(x),Y(y));
+    }
+    ctx.strokeStyle=col;ctx.lineWidth=2.5;ctx.stroke();
+  }
+
+  curve(muA,sigA,"#18487d");curve(muB,sigB,"#c4514d");
+  ctx.font="13px system-ui";
+  ctx.fillStyle="#18487d";ctx.fillText("Candidate A",X(muA)+5,Y(normPdf(muA,muA,sigA))-8);
+  ctx.fillStyle="#c4514d";ctx.fillText("Candidate B",X(muB)+5,Y(normPdf(muB,muB,sigB))-8);
+
+  ctx.fillStyle="#d48618";
+  for(const x of data){ctx.beginPath();ctx.arc(X(x),h-29,4,0,Math.PI*2);ctx.fill()}
+
+  const xb=mean(data);
+  ctx.strokeStyle="#d48618";ctx.lineWidth=2;ctx.beginPath();
+  ctx.moveTo(X(xb),h-35);ctx.lineTo(X(xb),h-88);ctx.stroke();
+  ctx.fillText("batch mean = "+fmt(xb),X(xb)+5,h-92);
+
+  ctx.fillStyle="#5b6575";ctx.fillText(fmt(min),35,h-12);ctx.fillText(fmt(max),w-55,h-12);
+}
+
+function runTests(){
+  const data=parseBatch(),result=document.getElementById("testResult");
+  if(!data.length){result.innerHTML="Please enter at least one number.";result.className="result warn";return}
+
+  const xb=mean(data),n=data.length;
+  const muA=+muAEl.value,sigA=+sigAEl.value,muB=+muBEl.value,sigB=+sigBEl.value;
+  const zA=(xb-muA)/(sigA/Math.sqrt(n)),zB=(xb-muB)/(sigB/Math.sqrt(n));
+  const pA=2*(1-normCdf(Math.abs(zA))),pB=2*(1-normCdf(Math.abs(zB)));
+  const alpha=.05;
+  const decA=pA<alpha?"reject A":"do not reject A";
+  const decB=pB<alpha?"reject B":"do not reject B";
+
+  result.innerHTML=`<b>Batch summary</b><br>n = ${n}, x̄ = ${fmt(xb)}<br><br>
+  <span class="pill">A: z = ${fmt(zA)}, p = ${fmt(pA)} ⇒ ${decA}</span><br>
+  <span class="pill">B: z = ${fmt(zB)}, p = ${fmt(pB)} ⇒ ${decB}</span><br><br>
+  <span class="small">At α = 0.05, a small p-value means the observed batch mean would be surprising under that candidate distribution.</span>`;
+
+  result.className="result "+(((pA<alpha&&pB>=alpha)||(pA>=alpha&&pB<alpha))?"good":"warn");
+  drawPtest(data);
+}
+
+function sampleFromB(){
+  const n=5,mu=+muBEl.value,s=+sigBEl.value,d=[];
+  for(let i=0;i<n;i++)d.push(mu+s*randn());
+  document.getElementById("batch").value=d.map(x=>x.toFixed(2)).join(", ");
+  runTests();
+}
+
+const muAEl=document.getElementById("muA"),sigAEl=document.getElementById("sigA");
+const muBEl=document.getElementById("muB"),sigBEl=document.getElementById("sigB");
+
+function syncLabels(){
+  for(const id of ["muA","sigA","muB","sigB"]){
+    document.getElementById(id+"Label").textContent=document.getElementById(id).value;
+  }
+}
+
+for(const id of ["muA","sigA","muB","sigB"]){
+  document.getElementById(id).addEventListener("input",()=>{syncLabels();runTests()});
+}
+document.getElementById("testBatch").addEventListener("click",runTests);
+document.getElementById("sampleFromB").addEventListener("click",sampleFromB);
+window.addEventListener("resize",runTests);
+
+syncLabels();
+runTests();
+</script>
+</body>
+</html>
