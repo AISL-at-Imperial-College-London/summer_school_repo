@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Interactive Joint Distribution Explorer</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>
+:root{--bg:#f4f7fb;--panel:#fff;--ink:#162033;--muted:#5d6b82;--line:#dbe3ef;--accent:#1f5ea8;--soft:#eaf2fb}
+*{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+header{padding:22px 26px 14px;background:linear-gradient(135deg,#173b6d,#245f9f);color:#fff} header h1{margin:0 0 6px;font-size:28px} header p{margin:0;opacity:.9}
+.app{display:grid;grid-template-columns:310px minmax(0,1fr);gap:16px;padding:16px;max-width:1500px;margin:auto}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 6px 18px rgba(28,48,78,.06)}
+.controls{padding:18px;position:sticky;top:12px;height:max-content}.controls h2{font-size:17px;margin:0 0 14px}.control{margin:0 0 15px}
+.control label{display:flex;justify-content:space-between;gap:10px;font-size:13px;font-weight:650;margin-bottom:6px}.value{min-width:52px;text-align:right;color:var(--accent);font-variant-numeric:tabular-nums}
+input[type=range]{width:100%} select,button{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink);font:inherit}
+button{margin-top:4px;background:var(--accent);color:#fff;border:none;font-weight:700;cursor:pointer}.checkrow{display:flex;align-items:center;gap:9px;margin:10px 0;font-size:13px}
+.formula{margin-top:15px;padding:12px;background:var(--soft);border-radius:10px;font-size:13px;line-height:1.45}
+.content{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(340px,.75fr);gap:16px}.mainplot{padding:10px;min-height:610px}#jointPlot{height:580px}
+.side{display:grid;gap:16px;align-content:start}.small{padding:10px}#xMarginal,#yMarginal,#conditionalPlot{height:235px}
+.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:14px}.stat{background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:10px}.stat .k{font-size:12px;color:var(--muted)}.stat .v{font-size:18px;font-weight:750;margin-top:3px}
+.note{padding:14px 16px;color:var(--muted);font-size:13px;line-height:1.45}@media(max-width:1050px){.app{grid-template-columns:1fr}.controls{position:static}.content{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header><h1>Interactive Joint Distribution Explorer</h1><p>Bivariate Gaussian density, marginals, correlation, samples, and a conditional slice.</p></header>
+<div class="app">
+<aside class="panel controls">
+<h2>Distribution controls</h2>
+<div class="control"><label for="view">Main view</label><select id="view"><option value="contour">Contour</option><option value="heatmap">Heatmap</option><option value="surface">3D surface</option></select></div>
+<div class="control"><label>Mean of X, μₓ <span class="value" id="muxVal"></span></label><input id="mux" type="range" min="-2" max="2" step="0.1" value="0"></div>
+<div class="control"><label>Mean of Y, μᵧ <span class="value" id="muyVal"></span></label><input id="muy" type="range" min="-2" max="2" step="0.1" value="0"></div>
+<div class="control"><label>Std. dev. of X, σₓ <span class="value" id="sxVal"></span></label><input id="sx" type="range" min="0.4" max="2.5" step="0.1" value="1.0"></div>
+<div class="control"><label>Std. dev. of Y, σᵧ <span class="value" id="syVal"></span></label><input id="sy" type="range" min="0.4" max="2.5" step="0.1" value="1.0"></div>
+<div class="control"><label>Correlation, ρ <span class="value" id="rhoVal"></span></label><input id="rho" type="range" min="-0.95" max="0.95" step="0.05" value="0.65"></div>
+<div class="control"><label>Condition on Y = y* <span class="value" id="y0Val"></span></label><input id="y0" type="range" min="-4" max="4" step="0.1" value="1.0"></div>
+<div class="control"><label>Number of samples <span class="value" id="nVal"></span></label><input id="n" type="range" min="0" max="1000" step="50" value="300"></div>
+<label class="checkrow"><input id="samples" type="checkbox" checked> Show random samples</label>
+<label class="checkrow"><input id="ellipses" type="checkbox" checked> Show 1σ and 2σ ellipses</label>
+<button id="reset">Reset</button><div class="formula" id="formulaBox"></div>
+</aside>
+<main class="content">
+<section class="panel mainplot"><div id="jointPlot"></div><div class="note">The joint density describes how pairs (X,Y) are distributed. When ρ = 0, the bivariate Gaussian separates into the product of its two marginals.</div></section>
+<section class="side">
+<div class="panel small"><div id="xMarginal"></div></div><div class="panel small"><div id="yMarginal"></div></div><div class="panel small"><div id="conditionalPlot"></div></div>
+<div class="panel stats"><div class="stat"><div class="k">Covariance</div><div class="v" id="covStat"></div></div><div class="stat"><div class="k">Conditional mean</div><div class="v" id="cmStat"></div></div><div class="stat"><div class="k">Conditional SD</div><div class="v" id="csStat"></div></div><div class="stat"><div class="k">Independent?</div><div class="v" id="indStat"></div></div></div>
+</section></main></div>
+<script>
+const $=id=>document.getElementById(id), ids=["mux","muy","sx","sy","rho","y0","n","view","samples","ellipses"];
+function normalPDF(x,mu,s){const z=(x-mu)/s;return Math.exp(-.5*z*z)/(Math.sqrt(2*Math.PI)*s)}
+function bivarPDF(x,y,mx,my,sx,sy,r){const zx=(x-mx)/sx,zy=(y-my)/sy;return Math.exp(-(zx*zx-2*r*zx*zy+zy*zy)/(2*(1-r*r)))/(2*Math.PI*sx*sy*Math.sqrt(1-r*r))}
+function linspace(a,b,n){return Array.from({length:n},(_,i)=>a+(b-a)*i/(n-1))}
+function mulberry32(seed){return function(){let t=seed+=0x6D2B79F5;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296}}
+function randnPair(rng){let u=0,v=0;while(u===0)u=rng();while(v===0)v=rng();const a=Math.sqrt(-2*Math.log(u));return[a*Math.cos(2*Math.PI*v),a*Math.sin(2*Math.PI*v)]}
+function ellipsePoints(mx,my,sx,sy,r,k){const a=sx*sx,b=r*sx*sy,d=sy*sy,tr=a+d,det=a*d-b*b,disc=Math.sqrt(Math.max(0,tr*tr/4-det)),l1=tr/2+disc,l2=tr/2-disc,ang=.5*Math.atan2(2*b,a-d),xs=[],ys=[];for(let i=0;i<=160;i++){const t=2*Math.PI*i/160,u=k*Math.sqrt(l1)*Math.cos(t),v=k*Math.sqrt(l2)*Math.sin(t);xs.push(mx+u*Math.cos(ang)-v*Math.sin(ang));ys.push(my+u*Math.sin(ang)+v*Math.cos(ang))}return{x:xs,y:ys}}
+const fmt=(x,d=2)=>Number(x).toFixed(d);
+function update(){
+const mx=+$('mux').value,my=+$('muy').value,sx=+$('sx').value,sy=+$('sy').value,r=+$('rho').value,y0=+$('y0').value,n=+$('n').value,view=$('view').value;
+$('muxVal').textContent=fmt(mx,1);$('muyVal').textContent=fmt(my,1);$('sxVal').textContent=fmt(sx,1);$('syVal').textContent=fmt(sy,1);$('rhoVal').textContent=fmt(r,2);$('y0Val').textContent=fmt(y0,1);$('nVal').textContent=n;
+const xmin=mx-4*sx,xmax=mx+4*sx,ymin=my-4*sy,ymax=my+4*sy,xs=linspace(xmin,xmax,81),ys=linspace(ymin,ymax,81),z=ys.map(y=>xs.map(x=>bivarPDF(x,y,mx,my,sx,sy,r))),tr=[];
+if(view==='surface')tr.push({type:'surface',x:xs,y:ys,z,colorscale:'Viridis',showscale:false,contours:{z:{show:true,usecolormap:true,project:{z:true}}}});else if(view==='heatmap')tr.push({type:'heatmap',x:xs,y:ys,z,colorscale:'Viridis',colorbar:{title:'density'}});else tr.push({type:'contour',x:xs,y:ys,z,colorscale:'Viridis',contours:{coloring:'heatmap'},colorbar:{title:'density'}});
+if(view!=='surface'&&$('ellipses').checked)[1,2].forEach((k,i)=>{const e=ellipsePoints(mx,my,sx,sy,r,k);tr.push({type:'scatter',mode:'lines',x:e.x,y:e.y,line:{color:i===0?'white':'rgba(255,255,255,.75)',width:i===0?3:2,dash:i===0?'solid':'dash'},hoverinfo:'skip',showlegend:false})});
+if(view!=='surface'&&$('samples').checked&&n>0){const rng=mulberry32(20260719),xp=[],yp=[];for(let i=0;i<n;i++){const q=randnPair(rng),x=mx+sx*q[0],y=my+sy*(r*q[0]+Math.sqrt(1-r*r)*q[1]);xp.push(x);yp.push(y)}tr.push({type:'scattergl',mode:'markers',x:xp,y:yp,marker:{size:4,color:'rgba(255,255,255,.55)',line:{width:.4,color:'rgba(0,0,0,.25)'}},hovertemplate:'X=%{x:.2f}<br>Y=%{y:.2f}<extra></extra>',showlegend:false})}
+if(view!=='surface')tr.push({type:'scatter',mode:'lines',x:[xmin,xmax],y:[y0,y0],line:{color:'#ff7043',width:3,dash:'dash'},hoverinfo:'skip',showlegend:false});
+const layout=view==='surface'?{title:{text:'Joint density surface',font:{size:18}},margin:{l:10,r:10,t:48,b:10},scene:{xaxis:{title:'X'},yaxis:{title:'Y'},zaxis:{title:'f(x,y)'},camera:{eye:{x:1.45,y:1.45,z:1.05}}}}:{title:{text:'Joint density of X and Y',font:{size:18}},margin:{l:60,r:30,t:48,b:55},xaxis:{title:'X',range:[xmin,xmax],zeroline:false},yaxis:{title:'Y',range:[ymin,ymax],scaleanchor:'x',scaleratio:1,zeroline:false},plot_bgcolor:'#fff',paper_bgcolor:'#fff'};
+Plotly.react('jointPlot',tr,layout,{responsive:true,displaylogo:false});
+const xpdf=xs.map(x=>normalPDF(x,mx,sx));Plotly.react('xMarginal',[{type:'scatter',mode:'lines',x:xs,y:xpdf,fill:'tozeroy',line:{width:3,color:'#245f9f'},hovertemplate:'x=%{x:.2f}<br>f_X(x)=%{y:.3f}<extra></extra>'}],{title:{text:'Marginal distribution of X',font:{size:15}},margin:{l:45,r:15,t:42,b:38},xaxis:{title:'x'},yaxis:{title:'density'},paper_bgcolor:'#fff',plot_bgcolor:'#fff'},{responsive:true,displaylogo:false});
+const ypdf=ys.map(y=>normalPDF(y,my,sy));Plotly.react('yMarginal',[{type:'scatter',mode:'lines',x:ys,y:ypdf,fill:'tozeroy',line:{width:3,color:'#8b5fbf'},hovertemplate:'y=%{x:.2f}<br>f_Y(y)=%{y:.3f}<extra></extra>'}],{title:{text:'Marginal distribution of Y',font:{size:15}},margin:{l:45,r:15,t:42,b:38},xaxis:{title:'y'},yaxis:{title:'density'},paper_bgcolor:'#fff',plot_bgcolor:'#fff'},{responsive:true,displaylogo:false});
+const cm=mx+r*(sx/sy)*(y0-my),cs=sx*Math.sqrt(1-r*r),cxs=linspace(cm-4*cs,cm+4*cs,161),cpdf=cxs.map(x=>normalPDF(x,cm,cs));Plotly.react('conditionalPlot',[{type:'scatter',mode:'lines',x:cxs,y:cpdf,fill:'tozeroy',line:{width:3,color:'#ff7043'},hovertemplate:'x=%{x:.2f}<br>f(x|y*)=%{y:.3f}<extra></extra>'}],{title:{text:`Conditional X | Y = ${fmt(y0,1)}`,font:{size:15}},margin:{l:45,r:15,t:42,b:38},xaxis:{title:'x'},yaxis:{title:'density'},paper_bgcolor:'#fff',plot_bgcolor:'#fff',shapes:[{type:'line',x0:cm,x1:cm,y0:0,y1:Math.max(...cpdf),line:{color:'#333',dash:'dash'}}]},{responsive:true,displaylogo:false});
+const cov=r*sx*sy;$('covStat').textContent=fmt(cov,2);$('cmStat').textContent=fmt(cm,2);$('csStat').textContent=fmt(cs,2);$('indStat').textContent=Math.abs(r)<1e-10?'Yes':'No';$('formulaBox').innerHTML=`<strong>Bivariate normal</strong><br>μ = (${fmt(mx,1)}, ${fmt(my,1)}), σₓ = ${fmt(sx,1)}, σᵧ = ${fmt(sy,1)}, ρ = ${fmt(r,2)}<br>Cov(X,Y) = ρσₓσᵧ = ${fmt(cov,2)}<br><br><strong>Conditional distribution</strong><br>X | Y=y* ~ N(${fmt(cm,2)}, ${fmt(cs*cs,2)})`;
+}
+ids.forEach(id=>$(id).addEventListener('input',update));$('reset').addEventListener('click',()=>{$('mux').value=0;$('muy').value=0;$('sx').value=1;$('sy').value=1;$('rho').value=.65;$('y0').value=1;$('n').value=300;$('view').value='contour';$('samples').checked=true;$('ellipses').checked=true;update()});update();
+</script>
+</body></html>
