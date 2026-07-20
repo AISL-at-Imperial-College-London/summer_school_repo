@@ -1,0 +1,644 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Move-Blocked Prediction Explorer</title>
+<style>
+:root{
+  --deepblue:#143b63;
+  --blue:#2c6d9b;
+  --orange:#d96a2b;
+  --green:#2f7a55;
+  --red:#a53a3a;
+  --ink:#182433;
+  --muted:#5d6b79;
+  --line:#d7e0e8;
+  --paper:#ffffff;
+  --softblue:#eaf2fa;
+  --softorange:#fff1e7;
+  --softgreen:#eaf6ef;
+  --shadow:0 18px 45px rgba(20,59,99,.14);
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;font-family:Aptos,Arial,Helvetica,sans-serif;color:var(--ink);background:linear-gradient(135deg,#e8f0f6,#dce7ef)}
+body{padding:18px}
+.app{
+  width:min(1500px,100%);
+  margin:0 auto;
+  background:var(--paper);
+  border-radius:20px;
+  box-shadow:var(--shadow);
+  overflow:hidden;
+  position:relative;
+}
+.app::before{content:"";position:absolute;left:0;top:0;bottom:0;width:10px;background:linear-gradient(var(--deepblue),var(--blue))}
+header{padding:28px 42px 18px;border-bottom:2px solid var(--line)}
+.eyebrow{font-size:14px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--orange)}
+h1{margin:5px 0 8px;color:var(--deepblue);font-size:clamp(30px,3vw,50px);line-height:1.05}
+.subtitle{font-size:clamp(17px,1.35vw,23px);color:var(--muted);max-width:1050px;line-height:1.45}
+main{padding:24px 42px 34px}
+.formula-strip{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:14px;
+  margin-bottom:20px;
+}
+.formula{
+  background:#f8fafc;
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:13px 16px;
+  min-height:82px;
+}
+.formula strong{display:block;color:var(--deepblue);font-size:15px;margin-bottom:7px}
+.math{font-family:"Cambria Math","STIX Two Math",serif;font-size:18px;line-height:1.35}
+.controls{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(180px,1fr)) auto auto;
+  gap:14px;
+  align-items:end;
+  background:var(--softblue);
+  border:1px solid #c8d9e7;
+  border-radius:16px;
+  padding:18px;
+  margin-bottom:22px;
+}
+.control label{display:block;font-weight:800;color:var(--deepblue);font-size:15px;margin-bottom:7px}
+.control-row{display:grid;grid-template-columns:1fr 88px;gap:9px;align-items:center}
+input[type="range"]{width:100%;accent-color:var(--blue)}
+input[type="number"]{
+  width:100%;
+  border:1px solid #aebfcd;
+  border-radius:9px;
+  padding:9px 8px;
+  font:600 16px/1 Arial;
+  color:var(--ink);
+  background:white;
+}
+button{
+  border:0;
+  border-radius:10px;
+  padding:11px 18px;
+  font:800 15px/1 Arial;
+  cursor:pointer;
+  white-space:nowrap;
+}
+#applyBtn{background:var(--deepblue);color:white}
+#resetBtn{background:white;color:var(--deepblue);border:1px solid #aebfcd}
+button:hover{filter:brightness(.97)}
+.status{
+  margin:-8px 0 17px;
+  font-size:14px;
+  color:var(--muted);
+}
+.charts{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.chart-card{
+  border:1px solid var(--line);
+  border-radius:16px;
+  padding:14px 14px 8px;
+  background:white;
+  min-width:0;
+}
+.chart-title{font-weight:800;color:var(--deepblue);font-size:20px;margin:2px 4px 7px}
+.chart-subtitle{color:var(--muted);font-size:14px;margin:0 4px 8px}
+svg{width:100%;height:auto;display:block;overflow:visible}
+.gridline{stroke:#dfe6ec;stroke-width:1}
+.axis{stroke:#607181;stroke-width:1.3}
+.ticktext{fill:#596a79;font-size:12px}
+.axislabel{fill:#425465;font-size:13px;font-weight:700}
+.step-input{fill:none;stroke:var(--orange);stroke-width:3}
+.step-output{fill:none;stroke:var(--blue);stroke-width:3}
+.cont-output{fill:none;stroke:var(--green);stroke-width:2.5}
+.sample-dot{fill:var(--blue);stroke:white;stroke-width:1.5}
+.legend text{font-size:12px;fill:#344657}
+.legend-line{stroke-width:3}
+.summary-grid{
+  display:grid;
+  grid-template-columns:1.15fr .85fr;
+  gap:20px;
+  margin-top:20px;
+}
+.card{border:1px solid var(--line);border-radius:16px;padding:18px;background:#fff}
+.card h2{margin:0 0 12px;color:var(--deepblue);font-size:21px}
+.sequence{
+  display:grid;
+  grid-template-columns:repeat(12,minmax(46px,1fr));
+  gap:6px;
+  overflow-x:auto;
+  padding-bottom:4px;
+}
+.cell{
+  min-width:46px;
+  border-radius:9px;
+  border:1px solid #c8d9e7;
+  background:var(--softblue);
+  padding:8px 5px;
+  text-align:center;
+}
+.cell .k{font-size:11px;color:var(--muted)}
+.cell .v{font-size:14px;font-weight:800;color:var(--deepblue);margin-top:3px}
+.explain{
+  background:linear-gradient(145deg,var(--softorange),#fff);
+  border-color:#f0c7aa;
+}
+.explain p{font-size:16px;line-height:1.5;margin:.5em 0}
+.callout{
+  margin-top:12px;
+  background:var(--softgreen);
+  border-left:6px solid var(--green);
+  border-radius:8px;
+  padding:12px 14px;
+  line-height:1.45;
+}
+details{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
+summary{cursor:pointer;font-weight:800;color:var(--deepblue)}
+.table-wrap{overflow:auto;margin-top:10px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{border-bottom:1px solid #e4e9ee;padding:7px 9px;text-align:right}
+th:first-child,td:first-child{text-align:center}
+th{background:#f6f8fa;color:var(--deepblue);position:sticky;top:0}
+footer{padding:12px 42px 18px;color:#6f7f8e;font-size:13px;border-top:1px solid #edf1f4}
+
+.reference-zero{stroke:#596a79;stroke-width:1.5;stroke-dasharray:5 5}
+.reference-target{stroke:var(--red);stroke-width:1.8;stroke-dasharray:8 5}
+.error-panel{margin-top:20px}
+.error-sequence-card{padding:20px}
+.error-header{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:18px;
+  margin-bottom:16px;
+}
+.error-header h2{margin-bottom:5px}
+.metric-toggle{
+  display:flex;
+  border:1px solid #aebfcd;
+  border-radius:11px;
+  overflow:hidden;
+  flex:none;
+}
+.metric-btn{
+  border:0;
+  border-radius:0;
+  padding:11px 18px;
+  min-width:74px;
+  background:white;
+  color:var(--deepblue);
+}
+.metric-btn + .metric-btn{border-left:1px solid #aebfcd}
+.metric-btn.active{
+  background:var(--deepblue);
+  color:white;
+}
+.error-layout{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 230px;
+  gap:20px;
+  align-items:stretch;
+}
+.error-layout .sequence{
+  grid-template-columns:repeat(12,minmax(58px,1fr));
+  align-content:center;
+}
+.error-cell{
+  min-width:58px;
+  border-radius:10px;
+  border:1px solid #c8d9e7;
+  background:var(--softblue);
+  padding:10px 6px;
+  text-align:center;
+}
+.error-cell .k{
+  font-size:11px;
+  color:var(--muted);
+}
+.error-cell .v{
+  font-size:15px;
+  font-weight:800;
+  color:var(--deepblue);
+  margin-top:4px;
+}
+.total-error-box{
+  background:linear-gradient(145deg,var(--softorange),#fff);
+  border:2px solid #efc19f;
+  border-radius:16px;
+  padding:20px 18px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  min-height:126px;
+}
+.total-label{
+  font-size:17px;
+  font-weight:800;
+  color:var(--deepblue);
+}
+.total-value{
+  margin-top:7px;
+  font-size:34px;
+  line-height:1;
+  font-weight:900;
+  color:var(--orange);
+}
+.total-note{
+  margin-top:9px;
+  font-size:12px;
+  color:var(--muted);
+}
+
+@media(max-width:1050px){
+  .controls{grid-template-columns:1fr 1fr 1fr}
+  .controls button{width:100%}
+  .charts{grid-template-columns:1fr}
+  .error-layout{grid-template-columns:1fr}
+  .total-error-box{min-height:110px}
+}
+@media(max-width:700px){
+  body{padding:6px}
+  header,main,footer{padding-left:24px;padding-right:20px}
+  .formula-strip{grid-template-columns:1fr}
+  .controls{grid-template-columns:1fr}
+  .control-row{grid-template-columns:1fr 85px}
+  .error-header{flex-direction:column}
+  .metric-toggle{width:100%}
+  .metric-btn{flex:1}
+}
+@media print{
+  body{padding:0;background:white}
+  .app{box-shadow:none;border-radius:0}
+  .controls{display:none}
+}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="eyebrow">Model Predictive Control Explorer</div>
+  <h1>Move-Blocked Input and Predicted Output</h1>
+  <div class="subtitle">
+    Change the first three manipulated-input values. The third value is held for the rest of the 12-step horizon.
+    The right-hand plot compares the discrete step-response prediction with the exact continuous-time response, while the lower panel evaluates tracking error across the prediction horizon.
+  </div>
+</header>
+
+<main>
+<section class="controls">
+    <div class="control">
+      <label for="u0Num">u<sub>0</sub> on [0,1 s)</label>
+      <div class="control-row">
+        <input id="u0Range" type="range" min="-2" max="2" step="0.01" value="0">
+        <input id="u0Num" type="number" min="-10" max="10" step="0.01" value="0">
+      </div>
+    </div>
+    <div class="control">
+      <label for="u1Num">u<sub>1</sub> on [1,2 s)</label>
+      <div class="control-row">
+        <input id="u1Range" type="range" min="-2" max="2" step="0.01" value="0">
+        <input id="u1Num" type="number" min="-10" max="10" step="0.01" value="0">
+      </div>
+    </div>
+    <div class="control">
+      <label for="u2Num">u<sub>2</sub> from 2 s onward</label>
+      <div class="control-row">
+        <input id="u2Range" type="range" min="-2" max="2" step="0.01" value="0">
+        <input id="u2Num" type="number" min="-10" max="10" step="0.01" value="0">
+      </div>
+    </div>
+    <button id="applyBtn" type="button">Apply</button>
+    <button id="resetBtn" type="button">Reset</button>
+  </section>
+  <div class="status" id="status">Initial condition: all manipulated inputs are zero. Sliders update immediately.</div>
+
+  <section class="charts">
+    <div class="chart-card">
+      <div class="chart-title">Move-blocked input</div>
+      <div class="chart-subtitle">12 slices, sampling time T<sub>s</sub> = 1 s</div>
+      <svg id="inputChart" viewBox="0 0 700 420" role="img" aria-label="Move-blocked input plot"></svg>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Predicted output</div>
+      <div class="chart-subtitle">Discrete ZOH prediction and continuous-time response</div>
+      <svg id="outputChart" viewBox="0 0 700 420" role="img" aria-label="Predicted output plot"></svg>
+    </div>
+  </section>
+
+  <section class="error-panel">
+    <div class="card error-sequence-card">
+      <div class="error-header">
+        <div>
+          <h2>Error at every output time slot</h2>
+          <p class="muted">Target: r = 1. Each box corresponds to the sampled prediction at t = 1, 2, …, 12 s.</p>
+        </div>
+        <div class="metric-toggle" role="group" aria-label="Error metric">
+          <button id="maeToggle" class="metric-btn active" type="button">MAE</button>
+          <button id="mseToggle" class="metric-btn" type="button">MSE</button>
+        </div>
+      </div>
+
+      <div class="error-layout">
+        <div class="sequence" id="errorSequence"></div>
+
+        <div class="total-error-box">
+          <div class="total-label" id="totalErrorLabel">Total MAE</div>
+          <div class="total-value" id="totalErrorValue">12.0000</div>
+          <div class="total-note">Sum over all 12 time slots</div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  Interactive translation of the supplied NumPy/Matplotlib model. No external libraries are required.
+</footer>
+</div>
+
+<script>
+"use strict";
+
+const K = 1.0;
+const zeta = 0.30;
+const wn = 1.2;
+const wd = wn * Math.sqrt(1 - zeta*zeta);
+const N = 12;
+const Ts = 1.0;
+
+function stepResponse(t){
+  if (t < 0) return 0;
+  const root = Math.sqrt(1 - zeta*zeta);
+  return K * (1 - Math.exp(-zeta*wn*t) *
+    (Math.cos(wd*t) + (zeta/root)*Math.sin(wd*t)));
+}
+
+const s = Array.from({length:N}, (_,i) => stepResponse((i+1)*Ts));
+const g = s.map((v,i) => i === 0 ? v : v - s[i-1]);
+
+function buildU(u0,u1,u2){
+  const u = Array(N).fill(u2);
+  if (N>0) u[0]=u0;
+  if (N>1) u[1]=u1;
+  if (N>2) u[2]=u2;
+  return u;
+}
+
+function predictY(u){
+  const y = Array(N).fill(0);
+  for(let k=0;k<N;k++){
+    let sum = 0;
+    for(let i=0;i<=k;i++) sum += g[i]*u[k-i];
+    y[k] = sum;
+  }
+  return y;
+}
+
+function continuousOutput(u0,u1,u2){
+  const dt = 0.01;
+  const t = [];
+  const y = [];
+  const du0 = u0;
+  const du1 = u1-u0;
+  const du2 = u2-u1;
+  const steps = Math.round(N*Ts/dt);
+  for(let j=0;j<=steps;j++){
+    const tj = j*dt;
+    let yj = du0*stepResponse(tj);
+    if(tj >= Ts) yj += du1*stepResponse(tj-Ts);
+    if(tj >= 2*Ts) yj += du2*stepResponse(tj-2*Ts);
+    t.push(tj);
+    y.push(yj);
+  }
+  return {t,y};
+}
+
+function finiteNumber(v, fallback){
+  const x = Number(v);
+  return Number.isFinite(x) ? x : fallback;
+}
+
+function niceBounds(values, includeZero=true){
+  let min = Math.min(...values);
+  let max = Math.max(...values);
+  if(includeZero){ min = Math.min(min,0); max = Math.max(max,0); }
+  if(!Number.isFinite(min) || !Number.isFinite(max)){ min=-1; max=1; }
+  if(Math.abs(max-min) < 1e-10){
+    const pad = Math.max(1,Math.abs(max)*0.25);
+    return [min-pad,max+pad];
+  }
+  const pad = 0.12*(max-min);
+  return [min-pad,max+pad];
+}
+
+function svgEl(name, attrs={}){
+  const el = document.createElementNS("http://www.w3.org/2000/svg",name);
+  for(const [k,v] of Object.entries(attrs)) el.setAttribute(k,v);
+  return el;
+}
+
+function addText(svg,x,y,text,cls,anchor="middle"){
+  const el = svgEl("text",{x,y,class:cls,"text-anchor":anchor});
+  el.textContent = text;
+  svg.appendChild(el);
+  return el;
+}
+
+function stepPath(times, levels, X, Y){
+  let d = `M ${X(times[0])} ${Y(levels[0])}`;
+  for(let i=1;i<times.length;i++){
+    d += ` H ${X(times[i])} V ${Y(levels[i])}`;
+  }
+  return d;
+}
+
+function linePath(xs, ys, X, Y){
+  let d = "";
+  for(let i=0;i<xs.length;i++){
+    d += `${i===0?"M":"L"} ${X(xs[i])} ${Y(ys[i])} `;
+  }
+  return d;
+}
+
+function renderChart(svg, config){
+  while(svg.firstChild) svg.removeChild(svg.firstChild);
+
+  const W=700,H=420;
+  const m={l:68,r:24,t:22,b:60};
+  const pw=W-m.l-m.r, ph=H-m.t-m.b;
+  const [xmin,xmax]=config.xDomain;
+  const [ymin,ymax]=config.yDomain;
+  const X=x=>m.l+(x-xmin)/(xmax-xmin)*pw;
+  const Y=y=>m.t+ph-(y-ymin)/(ymax-ymin)*ph;
+
+  const clipId = svg.id + "-clip";
+  const defs=svgEl("defs");
+  const clip=svgEl("clipPath",{id:clipId});
+  clip.appendChild(svgEl("rect",{x:m.l,y:m.t,width:pw,height:ph}));
+  defs.appendChild(clip);
+  svg.appendChild(defs);
+
+  const xTicks = config.xTicks || [0,2,4,6,8,10,12];
+  const yTicks = [];
+  for(let i=0;i<=5;i++) yTicks.push(ymin+i*(ymax-ymin)/5);
+
+  for(const xt of xTicks){
+    const x=X(xt);
+    svg.appendChild(svgEl("line",{x1:x,y1:m.t,x2:x,y2:m.t+ph,class:"gridline"}));
+    addText(svg,x,m.t+ph+22,String(xt),"ticktext");
+  }
+  for(const yt of yTicks){
+    const y=Y(yt);
+    svg.appendChild(svgEl("line",{x1:m.l,y1:y,x2:m.l+pw,y2:y,class:"gridline"}));
+    addText(svg,m.l-9,y+4,formatTick(yt),"ticktext","end");
+  }
+
+  svg.appendChild(svgEl("line",{x1:m.l,y1:m.t+ph,x2:m.l+pw,y2:m.t+ph,class:"axis"}));
+  svg.appendChild(svgEl("line",{x1:m.l,y1:m.t,x2:m.l,y2:m.t+ph,class:"axis"}));
+  addText(svg,m.l+pw/2,H-14,config.xLabel,"axislabel");
+  const yl=addText(svg,18,m.t+ph/2,config.yLabel,"axislabel");
+  yl.setAttribute("transform",`rotate(-90 18 ${m.t+ph/2})`);
+
+  const plotGroup=svgEl("g",{"clip-path":`url(#${clipId})`});
+  svg.appendChild(plotGroup);
+
+  for(const series of config.series){
+    const path=svgEl("path",{d:series.kind==="step"?
+      stepPath(series.x,series.y,X,Y):
+      linePath(series.x,series.y,X,Y),
+      class:series.className});
+    plotGroup.appendChild(path);
+
+    if(series.kind==="reference"){
+      // Reference lines are already drawn as paths and are not data curves.
+    }
+  }
+
+  const legend=svgEl("g",{class:"legend"});
+  let lx=m.l+12, ly=m.t+15;
+  for(const series of config.series.filter(s=>s.label)){
+    legend.appendChild(svgEl("line",{x1:lx,y1:ly,x2:lx+28,y2:ly,class:`legend-line ${series.className}`}));
+    const t=svgEl("text",{x:lx+36,y:ly+4});
+    t.textContent=series.label;
+    legend.appendChild(t);
+    ly+=20;
+  }
+  svg.appendChild(legend);
+}
+
+function formatTick(x){
+  const ax=Math.abs(x);
+  if(ax>=100) return x.toFixed(0);
+  if(ax>=10) return x.toFixed(1);
+  return x.toFixed(2).replace(/\.?0+$/,"");
+}
+
+function syncPair(rangeEl, numEl, source){
+  if(source==="range") numEl.value=rangeEl.value;
+  else {
+    const v=finiteNumber(numEl.value,0);
+    rangeEl.value=Math.max(Number(rangeEl.min),Math.min(Number(rangeEl.max),v));
+  }
+}
+
+const ids=["u0","u1","u2"];
+for(const id of ids){
+  const r=document.getElementById(id+"Range");
+  const n=document.getElementById(id+"Num");
+  r.addEventListener("input",()=>{syncPair(r,n,"range");update();});
+  n.addEventListener("input",()=>syncPair(r,n,"number"));
+  n.addEventListener("change",update);
+  n.addEventListener("keydown",e=>{if(e.key==="Enter") update();});
+}
+
+function readInputs(){
+  return ids.map(id=>finiteNumber(document.getElementById(id+"Num").value,0));
+}
+
+
+function update(){
+  const [u0,u1,u2]=readInputs();
+  const u=buildU(u0,u1,u2);
+  const y=predictY(u);
+  const cont=continuousOutput(u0,u1,u2);
+  const knots=Array.from({length:N+1},(_,i)=>i*Ts);
+  const uLevels=[...u,u[u.length-1]];
+  const yLevels=[0,...y];
+
+  renderChart(document.getElementById("inputChart"),{
+    xDomain:[0,N*Ts],
+    yDomain:niceBounds(uLevels),
+    xLabel:"Time [s]",
+    yLabel:"u",
+    series:[
+      {kind:"step",x:knots,y:uLevels,className:"step-input",label:"u (post)"}
+    ]
+  });
+
+  const outputValues=[...yLevels,...cont.y,0,1];
+  renderChart(document.getElementById("outputChart"),{
+    xDomain:[0,N*Ts],
+    yDomain:[-1,2],
+    xLabel:"Time [s]",
+    yLabel:"y",
+    series:[
+      {kind:"reference",x:[0,N*Ts],y:[0,0],className:"reference-zero",label:null},
+      {kind:"reference",x:[0,N*Ts],y:[1,1],className:"reference-target",label:"target r = 1"},
+      {kind:"step",x:knots,y:yLevels,className:"step-output",label:"sampled prediction"},
+      {kind:"line",x:cont.t,y:cont.y,className:"cont-output",label:"continuous response"}
+    ]
+  });
+
+  const metric = window.currentMetric || "mae";
+  const errors = y.map(value => {
+    const e = 1.0 - value;
+    return metric === "mse" ? e*e : Math.abs(e);
+  });
+
+  const errorSeq = document.getElementById("errorSequence");
+  errorSeq.innerHTML = "";
+  errors.forEach((value,i) => {
+    const cell = document.createElement("div");
+    cell.className = "error-cell";
+    cell.innerHTML = `<div class="k">t = ${i+1} s</div><div class="v">${value.toFixed(4)}</div>`;
+    errorSeq.appendChild(cell);
+  });
+
+  const totalError = errors.reduce((sum,value) => sum + value, 0);
+  document.getElementById("totalErrorLabel").textContent =
+    metric === "mse" ? "Total squared error" : "Total absolute error";
+  document.getElementById("totalErrorValue").textContent = totalError.toFixed(4);
+
+
+  document.getElementById("status").textContent=
+    `Current move-blocked sequence: [${u0.toFixed(2)}, ${u1.toFixed(2)}, ${u2.toFixed(2)}, …, ${u2.toFixed(2)}].`;
+}
+
+document.getElementById("applyBtn").addEventListener("click",update);
+
+window.currentMetric = "mae";
+
+function setMetric(metric){
+  window.currentMetric = metric;
+  document.getElementById("maeToggle").classList.toggle("active", metric === "mae");
+  document.getElementById("mseToggle").classList.toggle("active", metric === "mse");
+  update();
+}
+
+document.getElementById("maeToggle").addEventListener("click",()=>setMetric("mae"));
+document.getElementById("mseToggle").addEventListener("click",()=>setMetric("mse"));
+
+document.getElementById("resetBtn").addEventListener("click",()=>{
+  const defaults=[0,0,0];
+  ids.forEach((id,i)=>{
+    document.getElementById(id+"Num").value=defaults[i];
+    document.getElementById(id+"Range").value=defaults[i];
+  });
+  update();
+});
+
+update();
+</script>
+</body>
+</html>
