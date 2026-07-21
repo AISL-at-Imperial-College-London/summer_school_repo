@@ -1,0 +1,428 @@
+# NumPy provides numerical arrays, random-number generation,
+# matrix operations, and mathematical functions.
+import numpy as np
+
+# pandas provides the DataFrame structure and tools for
+# reading and writing tabular data such as CSV files.
+import pandas as pd
+
+# matplotlib.pyplot provides commands for creating plots.
+import matplotlib.pyplot as plt
+
+
+# ============================================================
+# 1. Generate noisy data
+# ============================================================
+
+# Create a random-number generator.
+#
+# The seed 42 makes the random numbers reproducible:
+# every time the code runs, it generates the same dataset.
+rng = np.random.default_rng(42)
+
+# Number of observations to generate.
+n_samples = 100
+
+# Generate 100 input values uniformly between 0 and 10.
+#
+# "Uniformly" means that every value in this interval has
+# the same probability of being selected.
+#
+# x is a one-dimensional NumPy array with length 100.
+x = rng.uniform(0, 10, n_samples)
+
+# Define the ground-truth relationship between x and y.
+#
+# The exact underlying model is
+#
+#     y = 3 + 2x
+#
+# The intercept is 3 and the slope is 2.
+#
+# y_true contains the noise-free output values.
+y_true = 3.0 + 2.0 * x
+
+# Generate normally distributed measurement noise.
+#
+# The noise has:
+#     mean = 0
+#     standard deviation = 2.5
+#
+# Adding this noise makes the observations scatter around
+# the ground-truth straight line.
+y = y_true + rng.normal(0, 2.5, n_samples)
+
+
+# ============================================================
+# 2. Save the data to a CSV file
+# ============================================================
+
+# Create a pandas DataFrame with two named columns:
+#
+#     x = input variable
+#     y = observed noisy output
+#
+# Each row represents one observation.
+data = pd.DataFrame({
+    "x": x,
+    "y": y
+})
+
+# Save the DataFrame as a CSV file.
+#
+# index=False prevents pandas from adding an extra column
+# containing the row numbers.
+data.to_csv("linear_regression_data.csv", index=False)
+
+
+# ============================================================
+# 3. Load the data from the CSV file
+# ============================================================
+
+# Read the CSV file back into a pandas DataFrame.
+#
+# This reproduces the workflow used with a real dataset,
+# where the data would normally already exist in a file.
+data = pd.read_csv("linear_regression_data.csv")
+
+# Select the column named "x" and convert it from a pandas
+# Series into a NumPy array.
+x = data["x"].to_numpy()
+
+# Select the column named "y" and convert it into a NumPy array.
+y = data["y"].to_numpy()
+
+
+# ============================================================
+# 4. Split the observations into training and test sets
+# ============================================================
+
+# Create another reproducible random-number generator.
+#
+# A different seed is used for the train-test split.
+rng = np.random.default_rng(7)
+
+# Create a randomly shuffled ordering of the observation indices.
+#
+# For 100 observations, the original indices are:
+#
+#     0, 1, 2, ..., 99
+#
+# rng.permutation returns these indices in random order.
+indices = rng.permutation(len(x))
+
+# Use 75% of the observations for training.
+#
+# int converts the result to a whole number.
+#
+# Here:
+#
+#     n_train = int(0.75 * 100) = 75
+n_train = int(0.75 * len(x))
+
+# Select the first 75 shuffled indices for training.
+train_indices = indices[:n_train]
+
+# Select the remaining shuffled indices for testing.
+test_indices = indices[n_train:]
+
+# Use NumPy indexing to extract the training inputs.
+x_train = x[train_indices]
+
+# Extract the corresponding training outputs.
+y_train = y[train_indices]
+
+# Extract the test inputs.
+x_test = x[test_indices]
+
+# Extract the corresponding test outputs.
+y_test = y[test_indices]
+
+
+# ============================================================
+# 5. Construct the design matrices
+#
+# The first column represents the intercept.
+# The second column contains the input values.
+# ============================================================
+
+# Construct the training design matrix.
+#
+# np.ones(len(x_train)) creates a column of ones.
+# This column allows the model to estimate an intercept.
+#
+# x_train forms the second column and is used to estimate
+# the slope.
+#
+# The resulting matrix has the form
+#
+#     X_train =
+#     [1  x_1]
+#     [1  x_2]
+#     [1  x_3]
+#     [   ... ]
+#
+# Its shape is:
+#
+#     number of training observations × 2
+X_train = np.column_stack((
+    np.ones(len(x_train)),
+    x_train
+))
+
+# Construct the test design matrix in exactly the same form.
+#
+# The test matrix is not used to estimate the coefficients.
+# It is only used to generate predictions on unseen data.
+X_test = np.column_stack((
+    np.ones(len(x_test)),
+    x_test
+))
+
+
+# ============================================================
+# 6. Estimate the regression coefficients
+#
+# w_hat = (X^T X)^(-1) X^T y
+# ============================================================
+
+# Estimate the intercept and slope using the closed-form
+# least-squares solution.
+#
+# X_train.T is the transpose of the design matrix.
+#
+# The @ symbol performs matrix multiplication.
+#
+# X_train.T @ X_train forms the matrix X^T X.
+#
+# np.linalg.inv(...) calculates its inverse.
+#
+# The complete expression calculates
+#
+#     w_hat = (X^T X)^(-1) X^T y
+#
+# w_hat contains two estimated parameters:
+#
+#     w_hat[0] = estimated intercept
+#     w_hat[1] = estimated slope
+w_hat = (
+    np.linalg.inv(X_train.T @ X_train)
+    @ X_train.T
+    @ y_train
+)
+
+# Extract the first estimated coefficient.
+intercept = w_hat[0]
+
+# Extract the second estimated coefficient.
+slope = w_hat[1]
+
+# Print a heading.
+print("Estimated model")
+
+# Print a separator line.
+print("----------------")
+
+# Print the fitted model.
+#
+# :.3f displays each number using three digits
+# after the decimal point.
+print(f"y_hat = {intercept:.3f} + {slope:.3f} x")
+
+
+# ============================================================
+# 7. Calculate training and test predictions
+# ============================================================
+
+# Calculate predictions for the training observations.
+#
+# Matrix multiplication performs
+#
+#     y_hat = X w_hat
+#
+# for all training observations simultaneously.
+y_train_pred = X_train @ w_hat
+
+# Calculate predictions for the unseen test observations
+# using the same fitted coefficients.
+y_test_pred = X_test @ w_hat
+
+
+# ============================================================
+# 8. Calculate regression metrics
+# ============================================================
+
+# Calculate the training residuals.
+#
+# A residual is:
+#
+#     observed value - predicted value
+train_errors = y_train - y_train_pred
+
+# Calculate the test residuals.
+test_errors = y_test - y_test_pred
+
+# Calculate training mean squared error.
+#
+# Each error is squared and then the average is taken.
+#
+# Squaring gives greater weight to large errors.
+train_mse = np.mean(train_errors**2)
+
+# Calculate test mean squared error.
+test_mse = np.mean(test_errors**2)
+
+# Calculate training root mean squared error.
+#
+# Taking the square root returns the metric to the same
+# units as the output variable y.
+train_rmse = np.sqrt(train_mse)
+
+# Calculate test root mean squared error.
+test_rmse = np.sqrt(test_mse)
+
+# Calculate training mean absolute error.
+#
+# np.abs changes negative errors into positive magnitudes.
+#
+# MAE gives the average absolute prediction error.
+train_mae = np.mean(np.abs(train_errors))
+
+# Calculate test mean absolute error.
+test_mae = np.mean(np.abs(test_errors))
+
+# Calculate the training coefficient of determination, R².
+#
+# The numerator is the residual sum of squares:
+#
+#     sum of squared prediction errors
+#
+# The denominator is the total sum of squares:
+#
+#     variation of y around its mean
+#
+# R² measures how much of the variation in y is explained
+# by the fitted model.
+train_r2 = 1 - (
+    np.sum(train_errors**2)
+    / np.sum((y_train - np.mean(y_train))**2)
+)
+
+# Calculate R² on the test dataset.
+#
+# Test R² measures how well the fitted model explains
+# previously unseen observations.
+test_r2 = 1 - (
+    np.sum(test_errors**2)
+    / np.sum((y_test - np.mean(y_test))**2)
+)
+
+
+# Print a blank line followed by a heading.
+print("\nModel performance")
+
+# Print a separator line.
+print("-----------------")
+
+# Print the table headings.
+#
+# <10 left-aligns "Metric" within 10 characters.
+#
+# >12 right-aligns "Training" and "Test"
+# within fields of 12 characters.
+print(f"{'Metric':<10}{'Training':>12}{'Test':>12}")
+
+# Print MSE values to three decimal places.
+print(f"{'MSE':<10}{train_mse:>12.3f}{test_mse:>12.3f}")
+
+# Print RMSE values.
+print(f"{'RMSE':<10}{train_rmse:>12.3f}{test_rmse:>12.3f}")
+
+# Print MAE values.
+print(f"{'MAE':<10}{train_mae:>12.3f}{test_mae:>12.3f}")
+
+# Print R² values.
+print(f"{'R²':<10}{train_r2:>12.3f}{test_r2:>12.3f}")
+
+
+# ============================================================
+# 9. Plot the data and fitted regression line
+# ============================================================
+
+# Generate 200 evenly spaced input values between the
+# smallest and largest observed x values.
+#
+# These values are used to draw a smooth regression line.
+x_line = np.linspace(x.min(), x.max(), 200)
+
+# Construct the design matrix for the plotting points.
+#
+# It has the same structure as the training design matrix:
+#
+#     first column  = ones
+#     second column = x values
+X_line = np.column_stack((
+    np.ones(len(x_line)),
+    x_line
+))
+
+# Calculate the fitted output values along the smooth line.
+y_line = X_line @ w_hat
+
+
+# Create a new figure that is 9 inches wide and 6 inches high.
+plt.figure(figsize=(9, 6))
+
+# Plot the training observations as circular markers.
+plt.scatter(
+    x_train,
+    y_train,
+    marker="o",
+    label="Training data"
+)
+
+# Plot the test observations using cross-shaped markers.
+#
+# s=70 controls the marker size.
+plt.scatter(
+    x_test,
+    y_test,
+    marker="x",
+    s=70,
+    label="Test data"
+)
+
+# Plot the fitted regression line.
+#
+# linewidth=2 makes the line slightly thicker.
+plt.plot(
+    x_line,
+    y_line,
+    linewidth=2,
+    label="Fitted linear model"
+)
+
+# Add a label to the horizontal axis.
+plt.xlabel("Input, x")
+
+# Add a label to the vertical axis.
+plt.ylabel("Output, y")
+
+# Add a title above the plot.
+plt.title("Linear Regression: Training and Test Data")
+
+# Add a light grid.
+#
+# alpha controls transparency:
+# 0 is fully transparent and 1 is fully opaque.
+plt.grid(alpha=0.3)
+
+# Display the legend using the labels supplied to
+# plt.scatter and plt.plot.
+plt.legend()
+
+# Adjust spacing so labels and titles fit inside the figure.
+plt.tight_layout()
+
+# Display the completed plot.
+plt.show()

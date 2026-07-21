@@ -1,0 +1,461 @@
+# NumPy provides numerical arrays, random-number generation,
+# matrix operations, and mathematical functions.
+import numpy as np
+
+# pandas provides the DataFrame structure and tools for
+# reading and writing tabular data such as CSV files.
+import pandas as pd
+
+# matplotlib.pyplot provides commands for creating plots.
+import matplotlib.pyplot as plt
+
+
+# ============================================================
+# 1. Generate noisy data
+# ============================================================
+
+# Create a random-number generator.
+#
+# The seed 42 makes the random numbers reproducible:
+# every time the code runs, it generates the same dataset.
+rng = np.random.default_rng(42)
+
+# Number of observations to generate.
+n_samples = 100
+
+# Generate three input features.
+#
+# x1 is uniformly distributed between 0 and 10.
+# x2 is uniformly distributed between -5 and 5.
+# x3 is uniformly distributed between 0 and 3.
+x1 = rng.uniform(0, 10, n_samples)
+x2 = rng.uniform(-5, 5, n_samples)
+x3 = rng.uniform(0, 3, n_samples)
+
+# Define the ground-truth relationship between the
+# three input features and the target variable.
+#
+# The exact underlying model is
+#
+#     y = 3 + 2x1 - 1.5x2 + 0.8x3
+#
+# The intercept is 3 and the feature coefficients are:
+#
+#     x1 coefficient =  2.0
+#     x2 coefficient = -1.5
+#     x3 coefficient =  0.8
+#
+# y_true contains the noise-free target values.
+y_true = (
+    3.0
+    + 2.0 * x1
+    - 1.5 * x2
+    + 0.8 * x3
+)
+
+# Generate normally distributed measurement noise.
+#
+# The noise has:
+#
+#     mean = 0
+#     standard deviation = 2.5
+#
+# Adding this noise makes the observations scatter around
+# the ground-truth regression model.
+y = y_true + rng.normal(0, 2.5, n_samples)
+
+
+# ============================================================
+# 2. Save the data to a CSV file
+# ============================================================
+
+# Create a pandas DataFrame with four named columns:
+#
+#     x1, x2, x3 = input features
+#     y          = observed noisy target
+#
+# Each row represents one observation.
+data = pd.DataFrame({
+    "x1": x1,
+    "x2": x2,
+    "x3": x3,
+    "y": y
+})
+
+# Save the DataFrame as a CSV file.
+#
+# index=False prevents pandas from adding an extra column
+# containing the row numbers.
+data.to_csv(
+    "multiple_linear_regression_data.csv",
+    index=False
+)
+
+
+# ============================================================
+# 3. Load the data from the CSV file
+# ============================================================
+
+# Read the CSV file back into a pandas DataFrame.
+#
+# This reproduces the workflow used with a real dataset,
+# where the data would normally already exist in a file.
+data = pd.read_csv(
+    "multiple_linear_regression_data.csv"
+)
+
+# Select the three feature columns and convert them from
+# a pandas DataFrame into a two-dimensional NumPy array.
+#
+# X has the form
+#
+#     X =
+#     [x1_1  x2_1  x3_1]
+#     [x1_2  x2_2  x3_2]
+#     [x1_3  x2_3  x3_3]
+#     [       ...       ]
+#
+# Its shape is:
+#
+#     number of observations × number of features
+X = data[["x1", "x2", "x3"]].to_numpy()
+
+# Select the target column and convert it into
+# a one-dimensional NumPy array.
+y = data["y"].to_numpy()
+
+
+# ============================================================
+# 4. Split the observations into training and test sets
+# ============================================================
+
+# Create another reproducible random-number generator.
+#
+# A different seed is used for the train-test split.
+rng = np.random.default_rng(7)
+
+# Create a randomly shuffled ordering of the observation
+# indices.
+#
+# For 100 observations, the original indices are:
+#
+#     0, 1, 2, ..., 99
+#
+# rng.permutation returns these indices in random order.
+indices = rng.permutation(len(X))
+
+# Use 75% of the observations for training.
+#
+# Here:
+#
+#     n_train = int(0.75 × 100) = 75
+n_train = int(0.75 * len(X))
+
+# Select the first 75 shuffled indices for training.
+train_indices = indices[:n_train]
+
+# Select the remaining shuffled indices for testing.
+test_indices = indices[n_train:]
+
+# Extract the training features.
+#
+# X_train_features contains three columns:
+#
+#     x1, x2, x3
+X_train_features = X[train_indices]
+
+# Extract the corresponding training target values.
+y_train = y[train_indices]
+
+# Extract the test features.
+X_test_features = X[test_indices]
+
+# Extract the corresponding test target values.
+y_test = y[test_indices]
+
+
+# ============================================================
+# 5. Construct the design matrices
+#
+# The first column represents the intercept.
+# The next three columns contain x1, x2, and x3.
+# ============================================================
+
+# Add a column of ones to the training feature matrix.
+#
+# The column of ones allows the model to estimate
+# an intercept.
+#
+# The resulting matrix has the form
+#
+#     X_train =
+#     [1  x1_1  x2_1  x3_1]
+#     [1  x1_2  x2_2  x3_2]
+#     [1  x1_3  x2_3  x3_3]
+#     [          ...         ]
+#
+# Its shape is:
+#
+#     number of training observations × 4
+X_train = np.column_stack((
+    np.ones(len(X_train_features)),
+    X_train_features
+))
+
+# Construct the test design matrix in exactly the same form.
+#
+# The test matrix is not used to estimate the coefficients.
+# It is only used to generate predictions on unseen data.
+X_test = np.column_stack((
+    np.ones(len(X_test_features)),
+    X_test_features
+))
+
+
+# ============================================================
+# 6. Estimate the regression coefficients
+#
+# w_hat = (X^T X)^(-1) X^T y
+# ============================================================
+
+# Estimate the intercept and the three feature coefficients
+# using the closed-form least-squares solution.
+#
+# X_train.T is the transpose of the design matrix.
+#
+# The @ symbol performs matrix multiplication.
+#
+# X_train.T @ X_train forms the matrix X^T X.
+#
+# np.linalg.inv(...) calculates its inverse.
+#
+# The complete expression calculates
+#
+#     w_hat = (X^T X)^(-1) X^T y
+#
+# w_hat contains four estimated parameters:
+#
+#     w_hat[0] = estimated intercept
+#     w_hat[1] = coefficient for x1
+#     w_hat[2] = coefficient for x2
+#     w_hat[3] = coefficient for x3
+w_hat = (
+    np.linalg.inv(X_train.T @ X_train)
+    @ X_train.T
+    @ y_train
+)
+
+# Extract the fitted coefficients.
+intercept = w_hat[0]
+coefficient_x1 = w_hat[1]
+coefficient_x2 = w_hat[2]
+coefficient_x3 = w_hat[3]
+
+# Print a heading.
+print("Estimated model")
+
+# Print a separator line.
+print("----------------")
+
+# Print the fitted model.
+#
+# The parentheses make negative and positive coefficients
+# unambiguous in the displayed equation.
+print(
+    f"y_hat = {intercept:.3f}"
+    f" + ({coefficient_x1:.3f}) x1"
+    f" + ({coefficient_x2:.3f}) x2"
+    f" + ({coefficient_x3:.3f}) x3"
+)
+
+
+# ============================================================
+# 7. Calculate training and test predictions
+# ============================================================
+
+# Calculate predictions for the training observations.
+#
+# Matrix multiplication performs
+#
+#     y_hat = X w_hat
+#
+# for all training observations simultaneously.
+y_train_pred = X_train @ w_hat
+
+# Calculate predictions for the unseen test observations
+# using the same fitted coefficients.
+y_test_pred = X_test @ w_hat
+
+
+# ============================================================
+# 8. Calculate regression metrics
+# ============================================================
+
+# Calculate the training residuals.
+#
+# A residual is:
+#
+#     observed value - predicted value
+train_errors = y_train - y_train_pred
+
+# Calculate the test residuals.
+test_errors = y_test - y_test_pred
+
+# Calculate training mean squared error.
+#
+# Each error is squared and then the average is taken.
+train_mse = np.mean(train_errors**2)
+
+# Calculate test mean squared error.
+test_mse = np.mean(test_errors**2)
+
+# Calculate training root mean squared error.
+#
+# Taking the square root returns the metric to the same
+# units as the target variable y.
+train_rmse = np.sqrt(train_mse)
+
+# Calculate test root mean squared error.
+test_rmse = np.sqrt(test_mse)
+
+# Calculate training mean absolute error.
+#
+# MAE gives the average absolute prediction error.
+train_mae = np.mean(np.abs(train_errors))
+
+# Calculate test mean absolute error.
+test_mae = np.mean(np.abs(test_errors))
+
+# Calculate the training coefficient of determination, R².
+#
+# The numerator is the residual sum of squares.
+#
+# The denominator is the total sum of squares:
+# the variation of y around its mean.
+train_r2 = 1 - (
+    np.sum(train_errors**2)
+    / np.sum((y_train - np.mean(y_train))**2)
+)
+
+# Calculate R² on the test dataset.
+test_r2 = 1 - (
+    np.sum(test_errors**2)
+    / np.sum((y_test - np.mean(y_test))**2)
+)
+
+
+# Print a blank line followed by a heading.
+print("\nModel performance")
+
+# Print a separator line.
+print("-----------------")
+
+# Print the table headings.
+print(f"{'Metric':<10}{'Training':>12}{'Test':>12}")
+
+# Print the calculated metrics.
+print(f"{'MSE':<10}{train_mse:>12.3f}{test_mse:>12.3f}")
+print(f"{'RMSE':<10}{train_rmse:>12.3f}{test_rmse:>12.3f}")
+print(f"{'MAE':<10}{train_mae:>12.3f}{test_mae:>12.3f}")
+print(f"{'R²':<10}{train_r2:>12.3f}{test_r2:>12.3f}")
+
+
+# ============================================================
+# 9. Plot observed and predicted target values
+# ============================================================
+
+# With one feature, the fitted model can be displayed as
+# a line on a two-dimensional input-output plot.
+#
+# With three features, the fitted model is a hyperplane
+# involving four dimensions:
+#
+#     x1, x2, x3, and y
+#
+# It therefore cannot be displayed as one line on a
+# two-dimensional plot.
+#
+# Instead, we compare the observed target values with the
+# predicted target values.
+#
+# A perfect model would place every point on the diagonal
+# reference line.
+
+# Find common limits for the horizontal and vertical axes.
+minimum_value = min(
+    y_train.min(),
+    y_test.min(),
+    y_train_pred.min(),
+    y_test_pred.min()
+)
+
+maximum_value = max(
+    y_train.max(),
+    y_test.max(),
+    y_train_pred.max(),
+    y_test_pred.max()
+)
+
+# Create a new figure.
+plt.figure(figsize=(8, 6))
+
+# Plot the training observations.
+#
+# Horizontal coordinate = observed target
+# Vertical coordinate   = predicted target
+plt.scatter(
+    y_train,
+    y_train_pred,
+    marker="o",
+    label="Training data"
+)
+
+# Plot the test observations using cross-shaped markers.
+plt.scatter(
+    y_test,
+    y_test_pred,
+    marker="x",
+    s=70,
+    label="Test data"
+)
+
+# Plot the perfect-prediction reference line.
+#
+# Points lying exactly on this line have:
+#
+#     predicted target = observed target
+plt.plot(
+    [minimum_value, maximum_value],
+    [minimum_value, maximum_value],
+    linewidth=2,
+    label="Perfect prediction"
+)
+
+# Add a label to the horizontal axis.
+plt.xlabel("Observed target, y")
+
+# Add a label to the vertical axis.
+plt.ylabel("Predicted target, y_hat")
+
+# Add a title above the plot.
+plt.title(
+    "Multiple Linear Regression: Observed vs Predicted"
+)
+
+# Add a light grid.
+plt.grid(alpha=0.3)
+
+# Display the legend.
+plt.legend()
+
+# Give both axes the same scale so that the diagonal
+# reference line is displayed correctly.
+plt.axis("equal")
+plt.xlim(minimum_value, maximum_value)
+plt.ylim(minimum_value, maximum_value)
+
+# Adjust spacing so labels and titles fit inside the figure.
+plt.tight_layout()
+
+# Display the completed plot.
+plt.show()
