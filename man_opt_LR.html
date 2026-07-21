@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Linear Regression: Data Space and Parameter Space</title>
+<style>
+  :root{
+    --bg:#f4f7fb;
+    --panel:#ffffff;
+    --ink:#172033;
+    --muted:#667085;
+    --line:#d9e0ea;
+    --accent:#2563eb;
+    --accent2:#7c3aed;
+    --good:#138a5b;
+    --warn:#c2410c;
+    --shadow:0 10px 30px rgba(21,32,51,.08);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    color:var(--ink);
+    background:var(--bg);
+  }
+  .page{max-width:1280px;margin:0 auto;padding:22px}
+  header{
+    display:flex;gap:20px;align-items:flex-start;justify-content:space-between;
+    margin-bottom:18px;
+  }
+  h1{font-size:clamp(1.55rem,2.6vw,2.3rem);margin:0 0 7px;line-height:1.12}
+  .subtitle{margin:0;color:var(--muted);max-width:830px;font-size:1rem;line-height:1.45}
+  .badge{
+    white-space:nowrap;background:#eaf1ff;color:#1d4ed8;border:1px solid #c9dafc;
+    border-radius:999px;padding:7px 11px;font-weight:700;font-size:.82rem
+  }
+  .formula-strip{
+    background:var(--panel);border:1px solid var(--line);border-radius:16px;
+    box-shadow:var(--shadow);padding:13px 16px;margin-bottom:16px;
+    display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px
+  }
+  .formula{min-width:0}
+  .formula .k{font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  .formula .v{font-family:"Cambria Math","Times New Roman",serif;font-size:1.06rem;margin-top:4px}
+  .workspace{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+  .panel{
+    background:var(--panel);border:1px solid var(--line);border-radius:18px;
+    box-shadow:var(--shadow);padding:15px;min-width:0
+  }
+  .panel-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:10px}
+  .panel h2{font-size:1.04rem;margin:0}
+  .panel p{margin:3px 0 0;color:var(--muted);font-size:.86rem;line-height:1.35}
+  .view-tag{font-size:.74rem;font-weight:800;color:var(--accent);background:#edf3ff;border-radius:999px;padding:5px 8px}
+  .canvas-wrap{
+    position:relative;width:100%;aspect-ratio:1.34/1;border:1px solid var(--line);
+    border-radius:13px;overflow:hidden;background:#fff
+  }
+  canvas{display:block;width:100%;height:100%;touch-action:none}
+  .canvas-note{
+    position:absolute;left:10px;bottom:8px;background:rgba(255,255,255,.9);
+    color:var(--muted);font-size:.74rem;padding:4px 7px;border-radius:7px;border:1px solid rgba(217,224,234,.9);
+    pointer-events:none
+  }
+  .controls{
+    margin-top:16px;display:grid;grid-template-columns:1.25fr .75fr;gap:16px
+  }
+  .control-card,.exercise-card{
+    background:var(--panel);border:1px solid var(--line);border-radius:18px;
+    box-shadow:var(--shadow);padding:16px
+  }
+  .control-card h2,.exercise-card h2{font-size:1.05rem;margin:0 0 12px}
+  .control-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .data-editor{
+    margin-top:16px;
+    border-top:1px solid var(--line);
+    padding-top:15px;
+  }
+  .data-editor-head{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom:9px;
+  }
+  .data-editor-head h3{margin:0;font-size:.98rem}
+  .data-editor-head p{margin:3px 0 0;color:var(--muted);font-size:.8rem;line-height:1.35}
+  textarea{
+    width:100%;
+    min-height:150px;
+    resize:vertical;
+    border:1px solid var(--line);
+    border-radius:11px;
+    padding:10px 11px;
+    color:var(--ink);
+    background:#fff;
+    font:0.9rem/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  textarea:focus{outline:2px solid rgba(37,99,235,.2);border-color:var(--accent)}
+  .editor-actions{
+    display:flex;
+    flex-wrap:wrap;
+    gap:9px;
+    align-items:center;
+    margin-top:9px;
+  }
+  .editor-feedback{
+    margin-left:auto;
+    font-size:.8rem;
+    color:var(--muted);
+  }
+  .editor-feedback.good{color:var(--good)}
+  .editor-feedback.bad{color:#b42318}
+  .slider-row{display:grid;grid-template-columns:118px 1fr 72px;gap:10px;align-items:center}
+  .slider-row label{font-size:.9rem;font-weight:650}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  input[type=number]{
+    width:100%;border:1px solid var(--line);border-radius:9px;padding:7px 8px;
+    color:var(--ink);background:#fff;font-size:.9rem
+  }
+  .toggles{display:flex;flex-wrap:wrap;gap:9px;margin-top:12px}
+  .check{
+    display:flex;align-items:center;gap:7px;border:1px solid var(--line);
+    border-radius:10px;padding:7px 9px;font-size:.84rem;background:#fff
+  }
+  .buttons{display:flex;flex-wrap:wrap;gap:9px;margin-top:13px}
+  button{
+    appearance:none;border:1px solid var(--line);background:#fff;color:var(--ink);
+    border-radius:10px;padding:9px 12px;font-weight:750;cursor:pointer
+  }
+  button:hover{border-color:#aab6c8}
+  button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  button.secondary{background:#f4f0ff;color:#5b21b6;border-color:#ddd0ff}
+  button.danger{color:#9a3412;background:#fff7ed;border-color:#fed7aa}
+  .metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:13px}
+  .metric{border:1px solid var(--line);border-radius:12px;padding:10px;background:#fbfcfe}
+  .metric .k{font-size:.73rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  .metric .v{font-size:1.18rem;font-weight:800;margin-top:3px;font-variant-numeric:tabular-nums}
+  .metric .s{font-size:.72rem;color:var(--muted);margin-top:2px}
+  .exercise-card ol{margin:0;padding-left:20px}
+  .exercise-card li{margin:0 0 10px;line-height:1.4}
+  .prompt{
+    margin-top:12px;border-left:4px solid var(--accent);background:#edf3ff;
+    border-radius:0 10px 10px 0;padding:10px 12px;font-size:.9rem;line-height:1.42
+  }
+  .status{
+    margin-top:12px;border-radius:12px;padding:10px 12px;border:1px solid var(--line);
+    font-size:.9rem;background:#fbfcfe
+  }
+  .status.good{border-color:#a7e3ca;background:#effaf5;color:#126040}
+  .status.warn{border-color:#fed7aa;background:#fff7ed;color:#9a3412}
+  .mini{font-size:.78rem;color:var(--muted)}
+  .footer-note{margin-top:14px;color:var(--muted);font-size:.78rem;text-align:center}
+  @media (max-width:950px){
+    .workspace,.controls{grid-template-columns:1fr}
+    .formula-strip{grid-template-columns:1fr}
+  }
+  @media (max-width:680px){
+    .page{padding:12px}
+    header{display:block}
+    .badge{display:inline-block;margin-top:10px}
+    .control-grid{grid-template-columns:1fr}
+    .slider-row{grid-template-columns:104px 1fr 68px}
+    .metrics{grid-template-columns:1fr 1fr}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div>
+      <h1>Linear Regression: Two Views of the Same Problem</h1>
+      <p class="subtitle">
+        A straight line lives in the data plane, but the optimisation happens in parameter space.
+        Move the slope and intercept, then watch the fitted line and the loss landscape update together.
+      </p>
+    </div>
+    <div class="badge">Interactive exercise</div>
+  </header>
+
+  <section class="formula-strip" aria-label="Key equations">
+    <div class="formula">
+      <div class="k">Model in data space</div>
+      <div class="v">ŷᵢ = m xᵢ + b</div>
+    </div>
+    <div class="formula">
+      <div class="k">Residual</div>
+      <div class="v">rᵢ = yᵢ − ŷᵢ</div>
+    </div>
+    <div class="formula">
+      <div class="k">Objective in parameter space</div>
+      <div class="v">J(m,b) = (1/n) Σ rᵢ²</div>
+    </div>
+  </section>
+
+  <section class="workspace">
+    <article class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>View 1 — Data space</h2>
+          <p>Each point is an observation. The blue line is the model ŷ = mx + b.</p>
+        </div>
+        <span class="view-tag">x–y plane</span>
+      </div>
+      <div class="canvas-wrap">
+        <canvas id="dataCanvas" aria-label="Scatter plot with fitted regression line and residuals"></canvas>
+        <div class="canvas-note">Adjust m and b below</div>
+      </div>
+    </article>
+
+    <article class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>View 2 — Parameter space</h2>
+          <p>Every location represents one line. Colour and contours show its mean squared error.</p>
+        </div>
+        <span class="view-tag">m–b plane</span>
+      </div>
+      <div class="canvas-wrap">
+        <canvas id="lossCanvas" aria-label="Contour map of regression loss over slope and intercept"></canvas>
+        <div class="canvas-note">Click or drag to choose a line</div>
+      </div>
+    </article>
+  </section>
+
+  <section class="controls">
+    <div class="control-card">
+      <h2>Model controls</h2>
+      <div class="control-grid">
+        <div class="slider-row">
+          <label for="slope">Slope, m</label>
+          <input id="slope" type="range" min="-3.5" max="4.5" step="0.01" value="-0.8">
+          <input id="slopeNum" type="number" min="-3.5" max="4.5" step="0.01" value="-0.80">
+        </div>
+        <div class="slider-row">
+          <label for="intercept">Intercept, b</label>
+          <input id="intercept" type="range" min="-4.5" max="4.5" step="0.01" value="2.8">
+          <input id="interceptNum" type="number" min="-4.5" max="4.5" step="0.01" value="2.80">
+        </div>
+        <div class="slider-row">
+          <label for="learningRate">Learning rate</label>
+          <input id="learningRate" type="range" min="0.002" max="0.08" step="0.001" value="0.025">
+          <input id="learningRateNum" type="number" min="0.002" max="0.08" step="0.001" value="0.025">
+        </div>
+        <div class="slider-row">
+          <label for="noise">Data noise</label>
+          <input id="noise" type="range" min="0.05" max="1.2" step="0.05" value="0.55">
+          <input id="noiseNum" type="number" min="0.05" max="1.2" step="0.05" value="0.55">
+        </div>
+      </div>
+
+      <div class="toggles">
+        <label class="check"><input id="showResiduals" type="checkbox" checked> Show residuals</label>
+        <label class="check"><input id="showGeometry" type="checkbox" checked> Show slope and intercept</label>
+        <label class="check"><input id="showOptimum" type="checkbox"> Reveal optimum</label>
+        <label class="check"><input id="showPath" type="checkbox" checked> Show descent path</label>
+      </div>
+
+      <div class="buttons">
+        <button id="stepBtn" type="button" class="secondary">One gradient step</button>
+        <button id="runBtn" type="button" class="primary">Run gradient descent</button>
+        <button id="bestBtn" type="button">Jump to best fit</button>
+        <button id="resetBtn" type="button">Reset parameters</button>
+        <button id="newDataBtn" type="button" class="danger">Generate new data</button>
+      </div>
+
+      <section class="data-editor" aria-labelledby="dataEditorTitle">
+        <div class="data-editor-head">
+          <div>
+            <h3 id="dataEditorTitle">Enter your own data points</h3>
+            <p>Use one point per line. Separate x and y with a comma, space, semicolon, or tab.</p>
+          </div>
+          <span class="view-tag">editable data</span>
+        </div>
+        <textarea id="pointsInput" spellcheck="false" aria-label="Data points entered as x and y pairs"></textarea>
+        <div class="editor-actions">
+          <button id="applyPointsBtn" type="button" class="primary">Apply points</button>
+          <button id="loadCurrentBtn" type="button">Reload current points</button>
+          <button id="examplePointsBtn" type="button">Load example</button>
+          <span id="editorFeedback" class="editor-feedback" aria-live="polite"></span>
+        </div>
+      </section>
+
+      <div class="metrics" aria-live="polite">
+        <div class="metric">
+          <div class="k">Current MSE</div>
+          <div id="mseMetric" class="v">—</div>
+          <div class="s">Height of the loss surface</div>
+        </div>
+        <div class="metric">
+          <div class="k">Slope</div>
+          <div id="slopeMetric" class="v">—</div>
+          <div class="s">Controls line rotation</div>
+        </div>
+        <div class="metric">
+          <div class="k">Intercept</div>
+          <div id="interceptMetric" class="v">—</div>
+          <div class="s">Controls vertical shift</div>
+        </div>
+        <div class="metric">
+          <div class="k">Gradient size</div>
+          <div id="gradMetric" class="v">—</div>
+          <div class="s">Zero at the minimum</div>
+        </div>
+      </div>
+    </div>
+
+    <aside class="exercise-card">
+      <h2>Student tasks</h2>
+      <ol>
+        <li><strong>Manual search:</strong> move <em>m</em> and <em>b</em> until the line looks reasonable. What happens to the point in parameter space?</li>
+        <li><strong>Read the contours:</strong> change only the slope, then only the intercept. Which direction in parameter space does each action follow?</li>
+        <li><strong>Find the valley:</strong> try to reach an MSE below <strong id="targetLoss">—</strong> without revealing the optimum.</li>
+        <li><strong>Optimisation:</strong> reset the parameters, then take gradient steps. Explain why the path tends to cut across contours.</li>
+      </ol>
+      <div class="prompt">
+        <strong>Key connection:</strong> one point <em>(m,b)</em> in parameter space corresponds to one complete straight line in data space.
+      </div>
+      <div id="status" class="status">Start by moving either slider.</div>
+      <p class="mini">For teaching: ask students to predict the direction of the next gradient step before pressing the button.</p>
+    </aside>
+  </section>
+
+  <div class="footer-note">
+    The optimum is computed from the ordinary least-squares solution; gradient descent is shown only as an iterative route to the same minimum.
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const dataCanvas = document.getElementById("dataCanvas");
+  const lossCanvas = document.getElementById("lossCanvas");
+  const dctx = dataCanvas.getContext("2d");
+  const lctx = lossCanvas.getContext("2d");
+
+  const slope = document.getElementById("slope");
+  const slopeNum = document.getElementById("slopeNum");
+  const intercept = document.getElementById("intercept");
+  const interceptNum = document.getElementById("interceptNum");
+  const learningRate = document.getElementById("learningRate");
+  const learningRateNum = document.getElementById("learningRateNum");
+  const noise = document.getElementById("noise");
+  const noiseNum = document.getElementById("noiseNum");
+  const showResiduals = document.getElementById("showResiduals");
+  const showGeometry = document.getElementById("showGeometry");
+  const showOptimum = document.getElementById("showOptimum");
+  const showPath = document.getElementById("showPath");
+  const stepBtn = document.getElementById("stepBtn");
+  const runBtn = document.getElementById("runBtn");
+  const bestBtn = document.getElementById("bestBtn");
+  const resetBtn = document.getElementById("resetBtn");
+  const newDataBtn = document.getElementById("newDataBtn");
+  const pointsInput = document.getElementById("pointsInput");
+  const applyPointsBtn = document.getElementById("applyPointsBtn");
+  const loadCurrentBtn = document.getElementById("loadCurrentBtn");
+  const examplePointsBtn = document.getElementById("examplePointsBtn");
+  const editorFeedback = document.getElementById("editorFeedback");
+
+  const mseMetric = document.getElementById("mseMetric");
+  const slopeMetric = document.getElementById("slopeMetric");
+  const interceptMetric = document.getElementById("interceptMetric");
+  const gradMetric = document.getElementById("gradMetric");
+  const status = document.getElementById("status");
+  const targetLoss = document.getElementById("targetLoss");
+
+  const mBounds = {min:-3.5, max:4.5};
+  const bBounds = {min:-4.5, max:4.5};
+  const pad = {left:54, right:18, top:18, bottom:43};
+
+  let points = [];
+  let optimum = {m:0,b:0};
+  let path = [];
+  let running = false;
+  let animationId = null;
+  let draggingLoss = false;
+  let landscapeCache = null;
+  let seed = 7;
+
+  function mulberry32(a){
+    return function(){
+      let t = a += 0x6D2B79F5;
+      t = Math.imul(t ^ t >>> 15, t | 1);
+      t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+
+  function gaussian(rng){
+    const u = Math.max(rng(), 1e-9);
+    const v = Math.max(rng(), 1e-9);
+    return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+  }
+
+  function pointsToText(){
+    pointsInput.value = points
+      .map(p => `${Number(p.x.toFixed(4))}, ${Number(p.y.toFixed(4))}`)
+      .join("\n");
+  }
+
+  function setEditorFeedback(message,type=""){
+    editorFeedback.textContent=message;
+    editorFeedback.className="editor-feedback";
+    if(type) editorFeedback.classList.add(type);
+  }
+
+  function parsePoints(text){
+    const parsed=[];
+    const errors=[];
+    const lines=text.split(/\r?\n/);
+
+    lines.forEach((raw,index)=>{
+      const line=raw.trim();
+      if(!line || line.startsWith("#")) return;
+
+      const parts=line.split(/[\s,;]+/).filter(Boolean);
+      if(parts.length!==2){
+        errors.push(`Line ${index+1}: expected exactly two numbers.`);
+        return;
+      }
+
+      const x=Number(parts[0]);
+      const y=Number(parts[1]);
+      if(!Number.isFinite(x) || !Number.isFinite(y)){
+        errors.push(`Line ${index+1}: x and y must be finite numbers.`);
+        return;
+      }
+
+      parsed.push({x,y});
+    });
+
+    if(parsed.length<2){
+      errors.push("Enter at least two valid points.");
+    }
+
+    const uniqueX=new Set(parsed.map(p=>p.x.toPrecision(14)));
+    if(uniqueX.size<2){
+      errors.push("At least two distinct x-values are required.");
+    }
+
+    return {parsed,errors};
+  }
+
+  function applyTypedPoints(){
+    const result=parsePoints(pointsInput.value);
+    if(result.errors.length){
+      setEditorFeedback(result.errors[0],"bad");
+      return;
+    }
+
+    stopRun();
+    points=result.parsed;
+    computeOptimum();
+    path=[];
+    landscapeCache=null;
+    setParams(-0.8,2.8,false);
+    pointsToText();
+    setEditorFeedback(`${points.length} points applied.`,"good");
+    render();
+  }
+
+  function generateData(){
+    const rng = mulberry32(seed++);
+    const sigma = Number(noise.value);
+    const xs = [-3,-2.5,-2,-1.4,-0.8,-0.2,0.4,1.0,1.6,2.2,2.7,3.1];
+    const trueM = 1.15 + (rng()-0.5)*0.45;
+    const trueB = 0.45 + (rng()-0.5)*0.9;
+    points = xs.map((x,i) => ({
+      x,
+      y:trueM*x + trueB + gaussian(rng)*sigma*(0.8 + 0.25*Math.abs(x)/3) + (i===9 ? 0.25*sigma : 0)
+    }));
+    computeOptimum();
+    path = [];
+    landscapeCache = null;
+    stopRun();
+    setParams(-0.8,2.8,false);
+    pointsToText();
+    setEditorFeedback(`${points.length} generated points loaded.`,"good");
+    render();
+  }
+
+  function computeOptimum(){
+    const n = points.length;
+    const meanX = points.reduce((s,p)=>s+p.x,0)/n;
+    const meanY = points.reduce((s,p)=>s+p.y,0)/n;
+    let num=0, den=0;
+    points.forEach(p=>{
+      num += (p.x-meanX)*(p.y-meanY);
+      den += (p.x-meanX)*(p.x-meanX);
+    });
+    optimum.m = Math.abs(den)>1e-12 ? num/den : 0;
+    optimum.b = meanY - optimum.m*meanX;
+  }
+
+  function mse(m,b){
+    return points.reduce((s,p)=>{
+      const r = p.y-(m*p.x+b);
+      return s+r*r;
+    },0)/points.length;
+  }
+
+  function gradient(m,b){
+    let gm=0, gb=0;
+    points.forEach(p=>{
+      const r = p.y-(m*p.x+b);
+      gm += -2*p.x*r;
+      gb += -2*r;
+    });
+    return {m:gm/points.length,b:gb/points.length};
+  }
+
+  function current(){
+    return {m:Number(slope.value),b:Number(intercept.value)};
+  }
+
+  function clamp(v,min,max){ return Math.min(max,Math.max(min,v)); }
+
+  function setParams(m,b,record=true){
+    m = clamp(m,mBounds.min,mBounds.max);
+    b = clamp(b,bBounds.min,bBounds.max);
+    slope.value = m;
+    slopeNum.value = m.toFixed(2);
+    intercept.value = b;
+    interceptNum.value = b.toFixed(2);
+    if(record){
+      const last = path[path.length-1];
+      if(!last || Math.hypot(last.m-m,last.b-b)>0.005) path.push({m,b});
+      if(path.length>200) path.shift();
+    }
+    render();
+  }
+
+  function syncPair(rangeEl,numEl,decimals,callback){
+    rangeEl.addEventListener("input",()=>{
+      numEl.value = Number(rangeEl.value).toFixed(decimals);
+      callback();
+    });
+    numEl.addEventListener("input",()=>{
+      if(numEl.value==="") return;
+      rangeEl.value = clamp(Number(numEl.value),Number(rangeEl.min),Number(rangeEl.max));
+      callback();
+    });
+  }
+
+  function resizeCanvas(canvas,ctx){
+    const rect = canvas.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1,2);
+    const w = Math.max(320,Math.round(rect.width*dpr));
+    const h = Math.max(240,Math.round(rect.height*dpr));
+    if(canvas.width!==w || canvas.height!==h){
+      canvas.width=w; canvas.height=h;
+    }
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    return {w:rect.width,h:rect.height,dpr};
+  }
+
+  function theme(){
+    return {
+      ink:"#172033", muted:"#667085", grid:"#e4e9f0", accent:"#2563eb",
+      accent2:"#7c3aed", good:"#138a5b", point:"#172033", residual:"#dc2626"
+    };
+  }
+
+  function dataRanges(){
+    const xVals = points.map(p=>p.x);
+    const yVals = points.map(p=>p.y);
+    const xMin=Math.min(...xVals)-0.55, xMax=Math.max(...xVals)+0.55;
+    let yMin=Math.min(...yVals), yMax=Math.max(...yVals);
+    const span=Math.max(3.5,yMax-yMin);
+    yMin-=0.23*span;
+    yMax+=0.23*span;
+    return {xMin,xMax,yMin,yMax};
+  }
+
+  function drawAxes(ctx,w,h,xMap,yMap,xTicks,yTicks,xLabel,yLabel){
+    const c=theme();
+    ctx.save();
+    ctx.strokeStyle=c.grid; ctx.fillStyle=c.muted; ctx.lineWidth=1; ctx.font="12px system-ui";
+    xTicks.forEach(t=>{
+      const x=xMap(t);
+      ctx.beginPath();ctx.moveTo(x,pad.top);ctx.lineTo(x,h-pad.bottom);ctx.stroke();
+      ctx.textAlign="center";ctx.fillText(formatTick(t),x,h-pad.bottom+19);
+    });
+    yTicks.forEach(t=>{
+      const y=yMap(t);
+      ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(w-pad.right,y);ctx.stroke();
+      ctx.textAlign="right";ctx.fillText(formatTick(t),pad.left-8,y+4);
+    });
+    ctx.strokeStyle=c.ink;ctx.lineWidth=1.2;
+    ctx.beginPath();ctx.moveTo(pad.left,pad.top);ctx.lineTo(pad.left,h-pad.bottom);ctx.lineTo(w-pad.right,h-pad.bottom);ctx.stroke();
+    ctx.fillStyle=c.ink;ctx.textAlign="center";ctx.font="13px system-ui";
+    ctx.fillText(xLabel,(pad.left+w-pad.right)/2,h-9);
+    ctx.save();ctx.translate(15,(pad.top+h-pad.bottom)/2);ctx.rotate(-Math.PI/2);ctx.fillText(yLabel,0,0);ctx.restore();
+    ctx.restore();
+  }
+
+  function formatTick(v){
+    if(Math.abs(v)>=10) return v.toFixed(0);
+    if(Math.abs(v)>=1) return v.toFixed(1).replace(".0","");
+    return v.toFixed(2).replace(/0+$/,"").replace(/\.$/,"");
+  }
+
+  function niceTicks(min,max,count=6){
+    const raw=(max-min)/count;
+    const pow=Math.pow(10,Math.floor(Math.log10(raw)));
+    const n=raw/pow;
+    const step=(n<1.5?1:n<3?2:n<7?5:10)*pow;
+    const start=Math.ceil(min/step)*step;
+    const ticks=[];
+    for(let v=start;v<=max+step*0.2;v+=step)ticks.push(Number(v.toFixed(10)));
+    return ticks;
+  }
+
+  function drawData(){
+    const {w,h}=resizeCanvas(dataCanvas,dctx);
+    const c=theme();
+    dctx.clearRect(0,0,w,h);
+    const r=dataRanges();
+    const xMap=x=>pad.left+(x-r.xMin)/(r.xMax-r.xMin)*(w-pad.left-pad.right);
+    const yMap=y=>h-pad.bottom-(y-r.yMin)/(r.yMax-r.yMin)*(h-pad.top-pad.bottom);
+    drawAxes(dctx,w,h,xMap,yMap,niceTicks(r.xMin,r.xMax,7),niceTicks(r.yMin,r.yMax,6),"Input, x","Output, y");
+
+    const {m,b}=current();
+
+    // Show the actual y-axis x = 0, so the intercept has a geometric meaning.
+    if(r.xMin<0 && r.xMax>0){
+      dctx.save();
+      dctx.strokeStyle="#9aa7ba";
+      dctx.lineWidth=1.5;
+      dctx.setLineDash([5,5]);
+      dctx.beginPath();
+      dctx.moveTo(xMap(0),pad.top);
+      dctx.lineTo(xMap(0),h-pad.bottom);
+      dctx.stroke();
+      dctx.restore();
+    }
+
+    if(showResiduals.checked){
+      dctx.save();
+      dctx.strokeStyle=c.residual;dctx.globalAlpha=.58;dctx.lineWidth=1.5;
+      points.forEach(p=>{
+        dctx.beginPath();dctx.moveTo(xMap(p.x),yMap(p.y));dctx.lineTo(xMap(p.x),yMap(m*p.x+b));dctx.stroke();
+      });
+      dctx.restore();
+    }
+
+    dctx.save();
+    dctx.strokeStyle=c.accent;dctx.lineWidth=3;
+    dctx.beginPath();
+    dctx.moveTo(xMap(r.xMin),yMap(m*r.xMin+b));
+    dctx.lineTo(xMap(r.xMax),yMap(m*r.xMax+b));
+    dctx.stroke();
+
+    if(showGeometry.checked){
+      // Intercept marker: the fitted line crosses the y-axis at (0,b).
+      if(b>=r.yMin && b<=r.yMax){
+        dctx.fillStyle=c.accent2;
+        dctx.strokeStyle="#fff";
+        dctx.lineWidth=2;
+        dctx.beginPath();
+        dctx.arc(xMap(0),yMap(b),6,0,Math.PI*2);
+        dctx.fill();
+        dctx.stroke();
+        dctx.fillStyle=c.accent2;
+        dctx.font="700 12px system-ui";
+        dctx.textAlign="left";
+        dctx.fillText(`b = ${b.toFixed(2)}`,xMap(0)+9,yMap(b)-8);
+      }
+
+      // Slope triangle: a horizontal run of 1 produces a vertical change of m.
+      const x0=0.35, x1=1.35;
+      const y0=m*x0+b, y1=m*x1+b;
+      if(x0>=r.xMin && x1<=r.xMax && y0>=r.yMin && y0<=r.yMax && y1>=r.yMin && y1<=r.yMax){
+        dctx.save();
+        dctx.strokeStyle=c.accent2;
+        dctx.lineWidth=1.8;
+        dctx.setLineDash([5,4]);
+        dctx.beginPath();
+        dctx.moveTo(xMap(x0),yMap(y0));
+        dctx.lineTo(xMap(x1),yMap(y0));
+        dctx.lineTo(xMap(x1),yMap(y1));
+        dctx.stroke();
+        dctx.setLineDash([]);
+        dctx.fillStyle=c.accent2;
+        dctx.font="700 11px system-ui";
+        dctx.textAlign="center";
+        dctx.fillText("Δx = 1",(xMap(x0)+xMap(x1))/2,yMap(y0)+16);
+        dctx.textAlign="left";
+        dctx.fillText(`Δy = m = ${m.toFixed(2)}`,xMap(x1)+6,(yMap(y0)+yMap(y1))/2+4);
+        dctx.restore();
+      }
+    }
+
+    dctx.fillStyle=c.point;
+    points.forEach(p=>{
+      dctx.beginPath();dctx.arc(xMap(p.x),yMap(p.y),4.8,0,Math.PI*2);dctx.fill();
+      dctx.strokeStyle="#fff";dctx.lineWidth=1.5;dctx.stroke();
+    });
+
+    dctx.fillStyle=c.accent;
+    dctx.font="700 13px system-ui";
+    dctx.textAlign="left";
+    const sign=b>=0?"+":"−";
+    dctx.fillText(`ŷ = ${m.toFixed(2)}x ${sign} ${Math.abs(b).toFixed(2)}`,pad.left+9,pad.top+18);
+    dctx.restore();
+  }
+
+  function lossColor(t){
+    t=clamp(t,0,1);
+    const stops=[
+      [244,247,251],[213,226,255],[160,190,246],[124,104,220],[78,45,145],[42,27,73]
+    ];
+    const q=t*(stops.length-1);
+    const i=Math.min(stops.length-2,Math.floor(q));
+    const f=q-i;
+    const a=stops[i],b=stops[i+1];
+    return [
+      Math.round(a[0]+f*(b[0]-a[0])),
+      Math.round(a[1]+f*(b[1]-a[1])),
+      Math.round(a[2]+f*(b[2]-a[2]))
+    ];
+  }
+
+  function buildLandscape(cssW,cssH,dpr){
+    const plotW=Math.max(1,Math.floor((cssW-pad.left-pad.right)*dpr));
+    const plotH=Math.max(1,Math.floor((cssH-pad.top-pad.bottom)*dpr));
+    const key=[plotW,plotH,points.map(p=>p.y.toFixed(4)).join(",")].join("|");
+    if(landscapeCache && landscapeCache.key===key) return landscapeCache;
+
+    const off=document.createElement("canvas");
+    off.width=plotW;off.height=plotH;
+    const octx=off.getContext("2d");
+    const image=octx.createImageData(plotW,plotH);
+    const minLoss=mse(optimum.m,optimum.b);
+    let maxLoss=0;
+    const corners=[
+      mse(mBounds.min,bBounds.min),mse(mBounds.min,bBounds.max),
+      mse(mBounds.max,bBounds.min),mse(mBounds.max,bBounds.max)
+    ];
+    maxLoss=Math.max(...corners);
+    const logDen=Math.log1p(maxLoss-minLoss);
+
+    for(let py=0;py<plotH;py++){
+      const b=bBounds.max-(py/(plotH-1))*(bBounds.max-bBounds.min);
+      for(let px=0;px<plotW;px++){
+        const m=mBounds.min+(px/(plotW-1))*(mBounds.max-mBounds.min);
+        const val=mse(m,b);
+        const t=Math.log1p(val-minLoss)/Math.max(logDen,1e-9);
+        const col=lossColor(t);
+        const idx=(py*plotW+px)*4;
+        image.data[idx]=col[0]; image.data[idx+1]=col[1]; image.data[idx+2]=col[2]; image.data[idx+3]=255;
+      }
+    }
+    octx.putImageData(image,0,0);
+    landscapeCache={key,off,minLoss,maxLoss,dpr};
+    return landscapeCache;
+  }
+
+  function marchingContours(ctx,xMap,yMap){
+    const minLoss=mse(optimum.m,optimum.b);
+    const levels=[0.08,0.18,0.40,0.85,1.7,3.2,5.8,10.0,18.0].map(v=>minLoss+v);
+    const nx=70, ny=70;
+    const vals=Array.from({length:ny+1},()=>Array(nx+1));
+    for(let j=0;j<=ny;j++){
+      const b=bBounds.min+j/ny*(bBounds.max-bBounds.min);
+      for(let i=0;i<=nx;i++){
+        const m=mBounds.min+i/nx*(mBounds.max-mBounds.min);
+        vals[j][i]=mse(m,b);
+      }
+    }
+    ctx.save();
+    ctx.strokeStyle="rgba(255,255,255,.78)";
+    ctx.lineWidth=1.15;
+    levels.forEach(level=>{
+      ctx.beginPath();
+      for(let j=0;j<ny;j++){
+        for(let i=0;i<nx;i++){
+          const m0=mBounds.min+i/nx*(mBounds.max-mBounds.min);
+          const m1=mBounds.min+(i+1)/nx*(mBounds.max-mBounds.min);
+          const b0=bBounds.min+j/ny*(bBounds.max-bBounds.min);
+          const b1=bBounds.min+(j+1)/ny*(bBounds.max-bBounds.min);
+          const v0=vals[j][i], v1=vals[j][i+1], v2=vals[j+1][i+1], v3=vals[j+1][i];
+          const pts=[];
+          function cross(va,vb,xa,ya,xb,yb){
+            if((va<level && vb>=level)||(va>=level && vb<level)){
+              const t=(level-va)/(vb-va);
+              pts.push([xa+t*(xb-xa),ya+t*(yb-ya)]);
+            }
+          }
+          cross(v0,v1,m0,b0,m1,b0);
+          cross(v1,v2,m1,b0,m1,b1);
+          cross(v2,v3,m1,b1,m0,b1);
+          cross(v3,v0,m0,b1,m0,b0);
+          if(pts.length===2){
+            ctx.moveTo(xMap(pts[0][0]),yMap(pts[0][1]));
+            ctx.lineTo(xMap(pts[1][0]),yMap(pts[1][1]));
+          } else if(pts.length===4){
+            ctx.moveTo(xMap(pts[0][0]),yMap(pts[0][1]));
+            ctx.lineTo(xMap(pts[1][0]),yMap(pts[1][1]));
+            ctx.moveTo(xMap(pts[2][0]),yMap(pts[2][1]));
+            ctx.lineTo(xMap(pts[3][0]),yMap(pts[3][1]));
+          }
+        }
+      }
+      ctx.stroke();
+    });
+    ctx.restore();
+  }
+
+  function drawLoss(){
+    const {w,h,dpr}=resizeCanvas(lossCanvas,lctx);
+    const c=theme();
+    lctx.clearRect(0,0,w,h);
+    const xMap=m=>pad.left+(m-mBounds.min)/(mBounds.max-mBounds.min)*(w-pad.left-pad.right);
+    const yMap=b=>h-pad.bottom-(b-bBounds.min)/(bBounds.max-bBounds.min)*(h-pad.top-pad.bottom);
+
+    const land=buildLandscape(w,h,dpr);
+    lctx.drawImage(
+      land.off,
+      0,0,land.off.width,land.off.height,
+      pad.left,pad.top,w-pad.left-pad.right,h-pad.top-pad.bottom
+    );
+    marchingContours(lctx,xMap,yMap);
+    drawAxes(lctx,w,h,xMap,yMap,niceTicks(mBounds.min,mBounds.max,7),niceTicks(bBounds.min,bBounds.max,7),"Slope, m","Intercept, b");
+
+    if(showPath.checked && path.length>1){
+      lctx.save();
+      lctx.strokeStyle="#ffffff";lctx.lineWidth=4;lctx.globalAlpha=.85;
+      lctx.beginPath();lctx.moveTo(xMap(path[0].m),yMap(path[0].b));
+      for(let i=1;i<path.length;i++)lctx.lineTo(xMap(path[i].m),yMap(path[i].b));
+      lctx.stroke();
+      lctx.strokeStyle=c.accent2;lctx.lineWidth=2;lctx.globalAlpha=1;
+      lctx.beginPath();lctx.moveTo(xMap(path[0].m),yMap(path[0].b));
+      for(let i=1;i<path.length;i++)lctx.lineTo(xMap(path[i].m),yMap(path[i].b));
+      lctx.stroke();
+      lctx.restore();
+    }
+
+    if(showOptimum.checked){
+      const ox=xMap(optimum.m), oy=yMap(optimum.b);
+      lctx.save();
+      lctx.strokeStyle="#fff";lctx.lineWidth=5;
+      lctx.beginPath();lctx.moveTo(ox-8,oy);lctx.lineTo(ox+8,oy);lctx.moveTo(ox,oy-8);lctx.lineTo(ox,oy+8);lctx.stroke();
+      lctx.strokeStyle=c.good;lctx.lineWidth=2.5;
+      lctx.beginPath();lctx.moveTo(ox-8,oy);lctx.lineTo(ox+8,oy);lctx.moveTo(ox,oy-8);lctx.lineTo(ox,oy+8);lctx.stroke();
+      lctx.fillStyle="#fff";lctx.font="700 12px system-ui";lctx.textAlign="left";
+      lctx.fillText("minimum",ox+10,oy-8);
+      lctx.restore();
+    }
+
+    const {m,b}=current();
+    const x=xMap(m), y=yMap(b);
+    lctx.save();
+    lctx.fillStyle=c.accent; lctx.strokeStyle="#fff"; lctx.lineWidth=3;
+    lctx.beginPath();lctx.arc(x,y,7,0,Math.PI*2);lctx.fill();lctx.stroke();
+    lctx.fillStyle="#fff";lctx.font="700 12px system-ui";lctx.textAlign="left";
+    const lx=clamp(x+10,pad.left+5,w-pad.right-105);
+    const ly=clamp(y-10,pad.top+15,h-pad.bottom-5);
+    lctx.fillText(`(${m.toFixed(2)}, ${b.toFixed(2)})`,lx,ly);
+    lctx.restore();
+  }
+
+  function updateMetrics(){
+    const {m,b}=current();
+    const L=mse(m,b);
+    const g=gradient(m,b);
+    const gn=Math.hypot(g.m,g.b);
+    mseMetric.textContent=L.toFixed(3);
+    slopeMetric.textContent=m.toFixed(2);
+    interceptMetric.textContent=b.toFixed(2);
+    gradMetric.textContent=gn.toFixed(3);
+
+    const minimum=mse(optimum.m,optimum.b);
+    const challenge=minimum+0.10;
+    targetLoss.textContent=challenge.toFixed(3);
+    const gap=L-minimum;
+    status.className="status";
+    if(gap<0.015){
+      status.classList.add("good");
+      status.textContent="You are essentially at the least-squares minimum. The line in data space and the point in parameter space now represent the best fit.";
+    } else if(L<challenge){
+      status.classList.add("good");
+      status.textContent=`Target reached: MSE below ${challenge.toFixed(3)}. Notice that visually different lines can still have similar losses near the bottom of the valley.`;
+    } else if(gn>15){
+      status.classList.add("warn");
+      status.textContent="The loss is steep here. A large learning rate may overshoot the valley.";
+    } else {
+      status.textContent="Current point: one specific slope and intercept, hence one specific line and one specific loss.";
+    }
+  }
+
+  function render(){
+    drawData();
+    drawLoss();
+    updateMetrics();
+  }
+
+  function oneStep(){
+    const {m,b}=current();
+    const g=gradient(m,b);
+    const lr=Number(learningRate.value);
+    const nextM=m-lr*g.m;
+    const nextB=b-lr*g.b;
+    setParams(nextM,nextB,true);
+  }
+
+  function stopRun(){
+    running=false;
+    runBtn.textContent="Run gradient descent";
+    if(animationId!==null) cancelAnimationFrame(animationId);
+    animationId=null;
+  }
+
+  function run(){
+    if(running){stopRun();return;}
+    running=true;runBtn.textContent="Pause descent";
+    let last=0;
+    function tick(ts){
+      if(!running)return;
+      if(ts-last>90){
+        oneStep();
+        last=ts;
+        const {m,b}=current();
+        const g=gradient(m,b);
+        if(Math.hypot(g.m,g.b)<0.008){stopRun();return;}
+      }
+      animationId=requestAnimationFrame(tick);
+    }
+    animationId=requestAnimationFrame(tick);
+  }
+
+  function resetParams(){
+    stopRun();path=[];
+    setParams(-0.8,2.8,false);
+  }
+
+  function eventToParam(evt){
+    const rect=lossCanvas.getBoundingClientRect();
+    const x=evt.clientX-rect.left, y=evt.clientY-rect.top;
+    const plotW=rect.width-pad.left-pad.right;
+    const plotH=rect.height-pad.top-pad.bottom;
+    const m=mBounds.min+(x-pad.left)/plotW*(mBounds.max-mBounds.min);
+    const b=bBounds.max-(y-pad.top)/plotH*(bBounds.max-bBounds.min);
+    return {
+      m:clamp(m,mBounds.min,mBounds.max),
+      b:clamp(b,bBounds.min,bBounds.max)
+    };
+  }
+
+  syncPair(slope,slopeNum,2,()=>{
+    stopRun();
+    const p=current();
+    const last=path[path.length-1];
+    if(!last || Math.hypot(last.m-p.m,last.b-p.b)>.02)path.push(p);
+    render();
+  });
+  syncPair(intercept,interceptNum,2,()=>{
+    stopRun();
+    const p=current();
+    const last=path[path.length-1];
+    if(!last || Math.hypot(last.m-p.m,last.b-p.b)>.02)path.push(p);
+    render();
+  });
+  syncPair(learningRate,learningRateNum,3,()=>render());
+  syncPair(noise,noiseNum,2,()=>{});
+
+  showResiduals.addEventListener("change",render);
+  showGeometry.addEventListener("change",render);
+  showOptimum.addEventListener("change",render);
+  showPath.addEventListener("change",render);
+  stepBtn.addEventListener("click",()=>{stopRun();oneStep();});
+  runBtn.addEventListener("click",run);
+  bestBtn.addEventListener("click",()=>{
+    stopRun();
+    path.push(current());
+    setParams(optimum.m,optimum.b,true);
+    showOptimum.checked=true;
+  });
+  resetBtn.addEventListener("click",resetParams);
+  newDataBtn.addEventListener("click",generateData);
+  applyPointsBtn.addEventListener("click",applyTypedPoints);
+  loadCurrentBtn.addEventListener("click",()=>{
+    pointsToText();
+    setEditorFeedback("Current points restored in the editor.","good");
+  });
+  examplePointsBtn.addEventListener("click",()=>{
+    pointsInput.value=[
+      "-3, -3.1",
+      "-2.5, -2.2",
+      "-2, -1.7",
+      "-1, -0.4",
+      "0, 0.6",
+      "0.8, 1.3",
+      "1.5, 2.4",
+      "2.2, 3.0",
+      "3, 4.2"
+    ].join("\n");
+    setEditorFeedback("Example loaded. Press Apply points.","");
+  });
+  pointsInput.addEventListener("keydown",evt=>{
+    if((evt.ctrlKey || evt.metaKey) && evt.key==="Enter"){
+      evt.preventDefault();
+      applyTypedPoints();
+    }
+  });
+
+  lossCanvas.addEventListener("pointerdown",evt=>{
+    draggingLoss=true;
+    lossCanvas.setPointerCapture(evt.pointerId);
+    stopRun();
+    const p=eventToParam(evt);setParams(p.m,p.b,true);
+  });
+  lossCanvas.addEventListener("pointermove",evt=>{
+    if(!draggingLoss)return;
+    const p=eventToParam(evt);setParams(p.m,p.b,true);
+  });
+  lossCanvas.addEventListener("pointerup",evt=>{
+    draggingLoss=false;
+    try{lossCanvas.releasePointerCapture(evt.pointerId);}catch(e){}
+  });
+  lossCanvas.addEventListener("pointercancel",()=>{draggingLoss=false;});
+
+  window.addEventListener("resize",()=>{
+    landscapeCache=null;
+    render();
+  });
+
+  generateData();
+})();
+</script>
+</body>
+</html>
