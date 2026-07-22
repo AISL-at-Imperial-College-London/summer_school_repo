@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Logistic Regression: Data Space and Parameter Space</title>
+<style>
+  :root{
+    --bg:#f4f7fb;
+    --panel:#ffffff;
+    --ink:#172033;
+    --muted:#667085;
+    --line:#d9e0ea;
+    --accent:#2563eb;
+    --accent2:#7c3aed;
+    --class0:#c2410c;
+    --class1:#138a5b;
+    --warn:#c2410c;
+    --shadow:0 10px 30px rgba(21,32,51,.08);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    color:var(--ink);
+    background:var(--bg);
+  }
+  .page{max-width:1280px;margin:0 auto;padding:22px}
+  header{
+    display:flex;gap:20px;align-items:flex-start;justify-content:space-between;
+    margin-bottom:18px;
+  }
+  h1{font-size:clamp(1.55rem,2.6vw,2.3rem);margin:0 0 7px;line-height:1.12}
+  .subtitle{margin:0;color:var(--muted);max-width:860px;font-size:1rem;line-height:1.45}
+  .badge{
+    white-space:nowrap;background:#eaf1ff;color:#1d4ed8;border:1px solid #c9dafc;
+    border-radius:999px;padding:7px 11px;font-weight:700;font-size:.82rem
+  }
+  .formula-strip{
+    background:var(--panel);border:1px solid var(--line);border-radius:16px;
+    box-shadow:var(--shadow);padding:13px 16px;margin-bottom:16px;
+    display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px
+  }
+  .formula{min-width:0}
+  .formula .k{font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  .formula .v{font-family:"Cambria Math","Times New Roman",serif;font-size:1.04rem;margin-top:4px;line-height:1.3}
+  .workspace{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+  .panel{
+    background:var(--panel);border:1px solid var(--line);border-radius:18px;
+    box-shadow:var(--shadow);padding:15px;min-width:0
+  }
+  .panel-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:10px}
+  .panel h2{font-size:1.04rem;margin:0}
+  .panel p{margin:3px 0 0;color:var(--muted);font-size:.86rem;line-height:1.35}
+  .view-tag{font-size:.74rem;font-weight:800;color:var(--accent);background:#edf3ff;border-radius:999px;padding:5px 8px;white-space:nowrap}
+  .canvas-wrap{
+    position:relative;width:100%;aspect-ratio:1.34/1;border:1px solid var(--line);
+    border-radius:13px;overflow:hidden;background:#fff
+  }
+  canvas{display:block;width:100%;height:100%;touch-action:none}
+  .canvas-note{
+    position:absolute;left:10px;bottom:8px;background:rgba(255,255,255,.92);
+    color:var(--muted);font-size:.74rem;padding:4px 7px;border-radius:7px;border:1px solid rgba(217,224,234,.9);
+    pointer-events:none
+  }
+  .legend{
+    display:flex;flex-wrap:wrap;gap:12px;margin-top:9px;color:var(--muted);font-size:.78rem
+  }
+  .legend span{display:flex;align-items:center;gap:6px}
+  .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+  .dot.zero{background:var(--class0)}
+  .dot.one{background:var(--class1)}
+  .line-key{width:18px;height:0;border-top:3px solid var(--accent);display:inline-block}
+  .controls{
+    margin-top:16px;display:grid;grid-template-columns:1.25fr .75fr;gap:16px
+  }
+  .control-card,.confusion-card{
+    background:var(--panel);border:1px solid var(--line);border-radius:18px;
+    box-shadow:var(--shadow);padding:16px
+  }
+  .control-card h2,.confusion-card h2{font-size:1.05rem;margin:0 0 5px}
+  .control-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .slider-row{display:grid;grid-template-columns:118px 1fr 72px;gap:10px;align-items:center}
+  .slider-row label{font-size:.9rem;font-weight:650}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  input[type=number]{
+    width:100%;border:1px solid var(--line);border-radius:9px;padding:7px 8px;
+    color:var(--ink);background:#fff;font-size:.9rem
+  }
+  .toggles{display:flex;flex-wrap:wrap;gap:9px;margin-top:12px}
+  .check{
+    display:flex;align-items:center;gap:7px;border:1px solid var(--line);
+    border-radius:10px;padding:7px 9px;font-size:.84rem;background:#fff
+  }
+  .buttons{display:flex;flex-wrap:wrap;gap:9px;margin-top:13px}
+  button{
+    appearance:none;border:1px solid var(--line);background:#fff;color:var(--ink);
+    border-radius:10px;padding:9px 12px;font-weight:750;cursor:pointer
+  }
+  button:hover{border-color:#aab6c8}
+  button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  button.secondary{background:#f4f0ff;color:#5b21b6;border-color:#ddd0ff}
+  button.danger{color:#9a3412;background:#fff7ed;border-color:#fed7aa}
+  .data-editor{
+    margin-top:16px;border-top:1px solid var(--line);padding-top:15px;
+  }
+  .data-editor-head{
+    display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:9px;
+  }
+  .data-editor-head h3{margin:0;font-size:.98rem}
+  .data-editor-head p{margin:3px 0 0;color:var(--muted);font-size:.8rem;line-height:1.35}
+  textarea{
+    width:100%;min-height:150px;resize:vertical;border:1px solid var(--line);
+    border-radius:11px;padding:10px 11px;color:var(--ink);background:#fff;
+    font:0.9rem/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  textarea:focus{outline:2px solid rgba(37,99,235,.2);border-color:var(--accent)}
+  .editor-actions{display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin-top:9px}
+  .editor-feedback{margin-left:auto;font-size:.8rem;color:var(--muted)}
+  .editor-feedback.good{color:var(--class1)}
+  .editor-feedback.bad{color:#b42318}
+  .metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:13px}
+  .metric{border:1px solid var(--line);border-radius:12px;padding:10px;background:#fbfcfe;min-width:0}
+  .metric .k{font-size:.71rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  .metric .v{font-size:1.12rem;font-weight:800;margin-top:3px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+  .metric .s{font-size:.7rem;color:var(--muted);margin-top:2px;line-height:1.25}
+  .confusion-intro{margin:0 0 15px;color:var(--muted);font-size:.84rem;line-height:1.4}
+  .confusion-matrix{
+    display:grid;grid-template-columns:1.05fr 1fr 1fr;gap:8px;align-items:stretch;
+  }
+  .cm-corner,.cm-head,.cm-row-head,.cm-cell{
+    border:1px solid var(--line);border-radius:12px;min-width:0;
+    display:flex;align-items:center;justify-content:center;text-align:center;
+  }
+  .cm-corner{
+    padding:10px 7px;background:#f8fafc;color:var(--muted);font-size:.72rem;
+    font-weight:750;line-height:1.25;
+  }
+  .cm-head,.cm-row-head{
+    padding:10px 7px;background:#f8fafc;font-size:.8rem;font-weight:800;line-height:1.25;
+  }
+  .cm-head.class0,.cm-row-head.class0{color:var(--class0)}
+  .cm-head.class1,.cm-row-head.class1{color:var(--class1)}
+  .cm-cell{padding:15px 7px;min-height:92px;flex-direction:column;background:#fbfcfe}
+  .cm-cell.correct{border-color:#a7e3ca;background:#effaf5}
+  .cm-cell.error{border-color:#fed7aa;background:#fff7ed}
+  .cm-cell .count{font-size:2rem;font-weight:850;line-height:1;font-variant-numeric:tabular-nums}
+  .cm-cell.correct .count{color:#126040}
+  .cm-cell.error .count{color:#9a3412}
+  .cm-cell .code{margin-top:7px;font-size:.76rem;font-weight:850;letter-spacing:.04em}
+  .cm-cell .meaning{margin-top:2px;color:var(--muted);font-size:.68rem;line-height:1.2}
+  .cm-metrics{
+    display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:14px;
+  }
+  .cm-metric{border:1px solid var(--line);border-radius:12px;padding:10px;background:#fbfcfe}
+  .cm-metric .k{font-size:.69rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  .cm-metric .v{font-size:1.13rem;font-weight:850;margin-top:3px;font-variant-numeric:tabular-nums}
+  .cm-note{
+    margin-top:13px;border-left:4px solid var(--accent);background:#edf3ff;
+    border-radius:0 10px 10px 0;padding:10px 12px;font-size:.82rem;line-height:1.4;
+  }
+  .footer-note{margin-top:14px;color:var(--muted);font-size:.78rem;text-align:center;line-height:1.4}
+  @media (max-width:950px){
+    .workspace,.controls{grid-template-columns:1fr}
+    .formula-strip{grid-template-columns:1fr}
+  }
+  @media (max-width:680px){
+    .page{padding:12px}
+    header{display:block}
+    .badge{display:inline-block;margin-top:10px}
+    .control-grid{grid-template-columns:1fr}
+    .slider-row{grid-template-columns:104px 1fr 68px}
+    .metrics{grid-template-columns:1fr 1fr}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div>
+      <h1>Logistic Regression: Two Views of the Same Problem</h1>
+      <p class="subtitle">
+        The model draws a sigmoid probability curve through binary observations, while optimisation takes place in the weight–bias plane.
+        Change the parameters and watch the probability model, decision boundary, cross-entropy landscape, and gradient path update together.
+      </p>
+    </div>
+    <div class="badge">Interactive exercise</div>
+  </header>
+
+  <section class="formula-strip" aria-label="Key equations">
+    <div class="formula">
+      <div class="k">Linear score</div>
+      <div class="v">zᵢ = w xᵢ + b</div>
+    </div>
+    <div class="formula">
+      <div class="k">Predicted class-1 probability</div>
+      <div class="v">pᵢ = σ(zᵢ) = 1 / (1 + e<sup>−zᵢ</sup>)</div>
+    </div>
+    <div class="formula">
+      <div class="k">Binary cross-entropy</div>
+      <div class="v">J(w,b) = −(1/n) Σ [yᵢ ln pᵢ + (1−yᵢ) ln(1−pᵢ)]</div>
+    </div>
+  </section>
+
+  <section class="workspace">
+    <article class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>View 1 — Data space</h2>
+          <p>The observations are 0 or 1. The blue sigmoid gives the model probability P(y=1|x).</p>
+        </div>
+        <span class="view-tag">x–probability plane</span>
+      </div>
+      <div class="canvas-wrap">
+        <canvas id="dataCanvas" aria-label="Binary observations with logistic regression probability curve"></canvas>
+        <div class="canvas-note">Adjust w and b below</div>
+      </div>
+      <div class="legend" aria-label="Plot legend">
+        <span><i class="dot zero"></i> Class 0</span>
+        <span><i class="dot one"></i> Class 1</span>
+        <span><i class="line-key"></i> Predicted P(y=1|x)</span>
+      </div>
+    </article>
+
+    <article class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>View 2 — Parameter space</h2>
+          <p>Every point represents one sigmoid model. Colour and contours show binary cross-entropy.</p>
+        </div>
+        <span class="view-tag">w–b plane</span>
+      </div>
+      <div class="canvas-wrap">
+        <canvas id="lossCanvas" aria-label="Contour map of logistic cross-entropy over weight and bias"></canvas>
+        <div class="canvas-note">Click or drag to choose a model</div>
+      </div>
+    </article>
+  </section>
+
+  <section class="controls">
+    <div class="control-card">
+      <h2>Model controls</h2>
+      <div class="control-grid">
+        <div class="slider-row">
+          <label for="weight">Weight, w</label>
+          <input id="weight" type="range" min="-6" max="6" step="0.01" value="-1.20">
+          <input id="weightNum" type="number" min="-6" max="6" step="0.01" value="-1.20">
+        </div>
+        <div class="slider-row">
+          <label for="bias">Bias, b</label>
+          <input id="bias" type="range" min="-6" max="6" step="0.01" value="2.20">
+          <input id="biasNum" type="number" min="-6" max="6" step="0.01" value="2.20">
+        </div>
+        <div class="slider-row">
+          <label for="learningRate">Learning rate</label>
+          <input id="learningRate" type="range" min="0.01" max="1.20" step="0.01" value="0.35">
+          <input id="learningRateNum" type="number" min="0.01" max="1.20" step="0.01" value="0.35">
+        </div>
+        <div class="slider-row">
+          <label for="overlap">Class overlap</label>
+          <input id="overlap" type="range" min="0.35" max="1.80" step="0.05" value="0.85">
+          <input id="overlapNum" type="number" min="0.35" max="1.80" step="0.05" value="0.85">
+        </div>
+      </div>
+
+      <div class="toggles">
+        <label class="check"><input id="showGaps" type="checkbox" checked> Show probability gaps</label>
+        <label class="check"><input id="showBoundary" type="checkbox" checked> Show 0.5 boundary</label>
+        <label class="check"><input id="showGeometry" type="checkbox" checked> Show parameter meaning</label>
+        <label class="check"><input id="showOptimum" type="checkbox"> Reveal optimum</label>
+        <label class="check"><input id="showPath" type="checkbox" checked> Show descent path</label>
+      </div>
+
+      <div class="buttons">
+        <button id="stepBtn" type="button" class="secondary">One gradient step</button>
+        <button id="runBtn" type="button" class="primary">Run gradient descent</button>
+        <button id="bestBtn" type="button">Jump to best fit</button>
+        <button id="resetBtn" type="button">Reset parameters</button>
+        <button id="newDataBtn" type="button" class="danger">Generate new data</button>
+      </div>
+
+      <section class="data-editor" aria-labelledby="dataEditorTitle">
+        <div class="data-editor-head">
+          <div>
+            <h3 id="dataEditorTitle">Enter your own binary data</h3>
+            <p>Use one observation per line as x, y. The output y must be exactly 0 or 1.</p>
+          </div>
+          <span class="view-tag">editable data</span>
+        </div>
+        <textarea id="pointsInput" spellcheck="false" aria-label="Binary observations entered as x and y pairs"></textarea>
+        <div class="editor-actions">
+          <button id="applyPointsBtn" type="button" class="primary">Apply points</button>
+          <button id="loadCurrentBtn" type="button">Reload current points</button>
+          <button id="examplePointsBtn" type="button">Load example</button>
+          <span id="editorFeedback" class="editor-feedback" aria-live="polite"></span>
+        </div>
+      </section>
+
+      <div class="metrics" aria-live="polite">
+        <div class="metric">
+          <div class="k">Current cross-entropy</div>
+          <div id="lossMetric" class="v">—</div>
+          <div class="s">Height of the loss surface</div>
+        </div>
+        <div class="metric">
+          <div class="k">Training accuracy</div>
+          <div id="accuracyMetric" class="v">—</div>
+          <div class="s">Using threshold p = 0.5</div>
+        </div>
+        <div class="metric">
+          <div class="k">Weight</div>
+          <div id="weightMetric" class="v">—</div>
+          <div class="s">Direction and steepness</div>
+        </div>
+        <div class="metric">
+          <div class="k">Bias</div>
+          <div id="biasMetric" class="v">—</div>
+          <div class="s">Log-odds when x = 0</div>
+        </div>
+        <div class="metric">
+          <div class="k">Decision boundary</div>
+          <div id="boundaryMetric" class="v">—</div>
+          <div class="s">x* = −b/w when w ≠ 0</div>
+        </div>
+        <div class="metric">
+          <div class="k">Gradient size</div>
+          <div id="gradMetric" class="v">—</div>
+          <div class="s">Approaches zero at a finite minimum</div>
+        </div>
+      </div>
+    </div>
+
+    <aside class="confusion-card" aria-labelledby="confusionTitle">
+      <h2 id="confusionTitle">Current confusion matrix</h2>
+      <p class="confusion-intro">
+        Predictions use the threshold <strong>p ≥ 0.5</strong>. Actual classes are rows; predicted classes are columns.
+      </p>
+
+      <div class="confusion-matrix" role="table" aria-label="Current binary classification confusion matrix">
+        <div class="cm-corner" role="columnheader">Actual ↓<br>Predicted →</div>
+        <div class="cm-head class0" role="columnheader">Predicted 0</div>
+        <div class="cm-head class1" role="columnheader">Predicted 1</div>
+
+        <div class="cm-row-head class0" role="rowheader">Actual 0</div>
+        <div class="cm-cell correct" role="cell">
+          <div id="tnCount" class="count">—</div>
+          <div class="code">TN</div>
+          <div class="meaning">true negatives</div>
+        </div>
+        <div class="cm-cell error" role="cell">
+          <div id="fpCount" class="count">—</div>
+          <div class="code">FP</div>
+          <div class="meaning">false positives</div>
+        </div>
+
+        <div class="cm-row-head class1" role="rowheader">Actual 1</div>
+        <div class="cm-cell error" role="cell">
+          <div id="fnCount" class="count">—</div>
+          <div class="code">FN</div>
+          <div class="meaning">false negatives</div>
+        </div>
+        <div class="cm-cell correct" role="cell">
+          <div id="tpCount" class="count">—</div>
+          <div class="code">TP</div>
+          <div class="meaning">true positives</div>
+        </div>
+      </div>
+
+      <div class="cm-metrics" aria-live="polite">
+        <div class="cm-metric">
+          <div class="k">Accuracy</div>
+          <div id="cmAccuracy" class="v">—</div>
+        </div>
+        <div class="cm-metric">
+          <div class="k">Precision</div>
+          <div id="cmPrecision" class="v">—</div>
+        </div>
+        <div class="cm-metric">
+          <div class="k">Recall</div>
+          <div id="cmRecall" class="v">—</div>
+        </div>
+        <div class="cm-metric">
+          <div class="k">F1 score</div>
+          <div id="cmF1" class="v">—</div>
+        </div>
+      </div>
+
+      <div id="cmNote" class="cm-note">
+        Move the weight or bias to see observations switch between predicted classes.
+      </div>
+    </aside>
+  </section>
+
+  <div class="footer-note">
+    The best fit is computed numerically because logistic regression has no general closed-form solution. For perfectly separable data, unregularised parameters can grow without a finite optimum; this exercise reports the best model within the displayed parameter range.
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const dataCanvas = document.getElementById("dataCanvas");
+  const lossCanvas = document.getElementById("lossCanvas");
+  const dctx = dataCanvas.getContext("2d");
+  const lctx = lossCanvas.getContext("2d");
+
+  const weight = document.getElementById("weight");
+  const weightNum = document.getElementById("weightNum");
+  const bias = document.getElementById("bias");
+  const biasNum = document.getElementById("biasNum");
+  const learningRate = document.getElementById("learningRate");
+  const learningRateNum = document.getElementById("learningRateNum");
+  const overlap = document.getElementById("overlap");
+  const overlapNum = document.getElementById("overlapNum");
+  const showGaps = document.getElementById("showGaps");
+  const showBoundary = document.getElementById("showBoundary");
+  const showGeometry = document.getElementById("showGeometry");
+  const showOptimum = document.getElementById("showOptimum");
+  const showPath = document.getElementById("showPath");
+  const stepBtn = document.getElementById("stepBtn");
+  const runBtn = document.getElementById("runBtn");
+  const bestBtn = document.getElementById("bestBtn");
+  const resetBtn = document.getElementById("resetBtn");
+  const newDataBtn = document.getElementById("newDataBtn");
+  const pointsInput = document.getElementById("pointsInput");
+  const applyPointsBtn = document.getElementById("applyPointsBtn");
+  const loadCurrentBtn = document.getElementById("loadCurrentBtn");
+  const examplePointsBtn = document.getElementById("examplePointsBtn");
+  const editorFeedback = document.getElementById("editorFeedback");
+
+  const lossMetric = document.getElementById("lossMetric");
+  const accuracyMetric = document.getElementById("accuracyMetric");
+  const weightMetric = document.getElementById("weightMetric");
+  const biasMetric = document.getElementById("biasMetric");
+  const boundaryMetric = document.getElementById("boundaryMetric");
+  const gradMetric = document.getElementById("gradMetric");
+  const tnCount = document.getElementById("tnCount");
+  const fpCount = document.getElementById("fpCount");
+  const fnCount = document.getElementById("fnCount");
+  const tpCount = document.getElementById("tpCount");
+  const cmAccuracy = document.getElementById("cmAccuracy");
+  const cmPrecision = document.getElementById("cmPrecision");
+  const cmRecall = document.getElementById("cmRecall");
+  const cmF1 = document.getElementById("cmF1");
+  const cmNote = document.getElementById("cmNote");
+
+  const wBounds = {min:-6, max:6};
+  const bBounds = {min:-6, max:6};
+  const pad = {left:58, right:18, top:18, bottom:43};
+
+  let points = [];
+  let optimum = {w:0,b:0,atBoundary:false};
+  let path = [];
+  let running = false;
+  let animationId = null;
+  let draggingLoss = false;
+  let landscapeCache = null;
+  let seed = 17;
+
+  function mulberry32(a){
+    return function(){
+      let t = a += 0x6D2B79F5;
+      t = Math.imul(t ^ t >>> 15, t | 1);
+      t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+
+  function sigmoid(z){
+    if(z>=0){
+      const e=Math.exp(-z);
+      return 1/(1+e);
+    }
+    const e=Math.exp(z);
+    return e/(1+e);
+  }
+
+  function softplus(z){
+    if(z>30) return z;
+    if(z<-30) return Math.exp(z);
+    return Math.log1p(Math.exp(z));
+  }
+
+  function clamp(v,min,max){ return Math.min(max,Math.max(min,v)); }
+
+  function pointsToText(){
+    pointsInput.value = points
+      .map(p => `${Number(p.x.toFixed(4))}, ${p.y}`)
+      .join("\n");
+  }
+
+  function setEditorFeedback(message,type=""){
+    editorFeedback.textContent=message;
+    editorFeedback.className="editor-feedback";
+    if(type) editorFeedback.classList.add(type);
+  }
+
+  function parsePoints(text){
+    const parsed=[];
+    const errors=[];
+    const lines=text.split(/\r?\n/);
+
+    lines.forEach((raw,index)=>{
+      const line=raw.trim();
+      if(!line || line.startsWith("#")) return;
+
+      const parts=line.split(/[\s,;]+/).filter(Boolean);
+      if(parts.length!==2){
+        errors.push(`Line ${index+1}: expected exactly two numbers.`);
+        return;
+      }
+
+      const x=Number(parts[0]);
+      const y=Number(parts[1]);
+      if(!Number.isFinite(x) || !Number.isFinite(y)){
+        errors.push(`Line ${index+1}: x and y must be finite numbers.`);
+        return;
+      }
+      if(y!==0 && y!==1){
+        errors.push(`Line ${index+1}: y must be exactly 0 or 1.`);
+        return;
+      }
+      parsed.push({x,y});
+    });
+
+    if(parsed.length<4) errors.push("Enter at least four valid observations.");
+    if(new Set(parsed.map(p=>p.x.toPrecision(14))).size<2){
+      errors.push("At least two distinct x-values are required.");
+    }
+    if(new Set(parsed.map(p=>p.y)).size<2){
+      errors.push("Include at least one observation from each class.");
+    }
+
+    return {parsed,errors};
+  }
+
+  function applyTypedPoints(){
+    const result=parsePoints(pointsInput.value);
+    if(result.errors.length){
+      setEditorFeedback(result.errors[0],"bad");
+      return;
+    }
+
+    stopRun();
+    points=result.parsed.sort((a,b)=>a.x-b.x);
+    computeOptimum();
+    path=[];
+    landscapeCache=null;
+    setParams(-1.2,2.2,false);
+    pointsToText();
+    setEditorFeedback(`${points.length} binary observations applied.`,"good");
+    render();
+  }
+
+  function generateData(){
+    const rng=mulberry32(seed++);
+    const spread=Number(overlap.value);
+    const xs=[-3.2,-2.8,-2.4,-2.0,-1.6,-1.2,-0.8,-0.4,0,0.4,0.8,1.2,1.6,2.0,2.4,2.8,3.2];
+    const trueW=(1.55+(rng()-0.5)*0.45)/spread;
+    const trueB=(rng()-0.5)*0.9;
+
+    points=xs.map(x=>{
+      const p=sigmoid(trueW*x+trueB);
+      return {x,y:rng()<p?1:0};
+    });
+
+    // Keep both classes and some overlap so the unregularised optimum is normally finite.
+    const leftIndex=xs.reduce((best,x,i)=>Math.abs(x+0.8)<Math.abs(xs[best]+0.8)?i:best,0);
+    const rightIndex=xs.reduce((best,x,i)=>Math.abs(x-0.8)<Math.abs(xs[best]-0.8)?i:best,0);
+    points[leftIndex].y=1;
+    points[rightIndex].y=0;
+    points[0].y=0;
+    points[points.length-1].y=1;
+
+    computeOptimum();
+    path=[];
+    landscapeCache=null;
+    stopRun();
+    setParams(-1.2,2.2,false);
+    pointsToText();
+    setEditorFeedback(`${points.length} generated observations loaded.`,"good");
+    render();
+  }
+
+  function crossEntropy(w,b){
+    let total=0;
+    for(const p of points){
+      const z=w*p.x+b;
+      total += softplus(z)-p.y*z;
+    }
+    return total/points.length;
+  }
+
+  function gradient(w,b){
+    let gw=0,gb=0;
+    for(const point of points){
+      const p=sigmoid(w*point.x+b);
+      const e=p-point.y;
+      gw += e*point.x;
+      gb += e;
+    }
+    return {w:gw/points.length,b:gb/points.length};
+  }
+
+  function hessian(w,b){
+    let hww=0,hwb=0,hbb=0;
+    for(const point of points){
+      const p=sigmoid(w*point.x+b);
+      const s=p*(1-p);
+      hww += s*point.x*point.x;
+      hwb += s*point.x;
+      hbb += s;
+    }
+    const n=points.length;
+    return {ww:hww/n,wb:hwb/n,bb:hbb/n};
+  }
+
+  function computeOptimum(){
+    // Coarse bounded search gives a robust starting point, including separable datasets.
+    let best={w:0,b:0,loss:Infinity};
+    const grid=49;
+    for(let j=0;j<grid;j++){
+      const b=bBounds.min+j/(grid-1)*(bBounds.max-bBounds.min);
+      for(let i=0;i<grid;i++){
+        const w=wBounds.min+i/(grid-1)*(wBounds.max-wBounds.min);
+        const L=crossEntropy(w,b);
+        if(L<best.loss) best={w,b,loss:L};
+      }
+    }
+
+    let w=best.w,b=best.b;
+    for(let iter=0;iter<80;iter++){
+      const g=gradient(w,b);
+      const H=hessian(w,b);
+      const ridge=1e-7;
+      const a=H.ww+ridge,c=H.bb+ridge,d=H.wb;
+      const det=a*c-d*d;
+      let dw,db;
+      if(det>1e-12){
+        dw=(c*g.w-d*g.b)/det;
+        db=(-d*g.w+a*g.b)/det;
+      }else{
+        dw=g.w;
+        db=g.b;
+      }
+
+      const oldLoss=crossEntropy(w,b);
+      let scale=1;
+      let accepted=false;
+      for(let ls=0;ls<20;ls++){
+        const nw=clamp(w-scale*dw,wBounds.min,wBounds.max);
+        const nb=clamp(b-scale*db,bBounds.min,bBounds.max);
+        const newLoss=crossEntropy(nw,nb);
+        if(newLoss<=oldLoss-1e-12){
+          w=nw;b=nb;accepted=true;break;
+        }
+        scale*=0.5;
+      }
+      if(!accepted || Math.hypot(scale*dw,scale*db)<1e-7) break;
+    }
+
+    // A projected gradient polish helps if Newton steps meet a nearly singular Hessian.
+    let step=0.25;
+    for(let iter=0;iter<300;iter++){
+      const g=gradient(w,b);
+      const oldLoss=crossEntropy(w,b);
+      const nw=clamp(w-step*g.w,wBounds.min,wBounds.max);
+      const nb=clamp(b-step*g.b,bBounds.min,bBounds.max);
+      const newLoss=crossEntropy(nw,nb);
+      if(newLoss<oldLoss){
+        w=nw;b=nb;step=Math.min(1.0,step*1.03);
+      }else{
+        step*=0.5;
+      }
+      if(step<1e-7 || Math.hypot(g.w,g.b)<1e-7) break;
+    }
+
+    optimum={
+      w,b,
+      atBoundary:Math.abs(w-wBounds.min)<0.01 || Math.abs(w-wBounds.max)<0.01 ||
+                 Math.abs(b-bBounds.min)<0.01 || Math.abs(b-bBounds.max)<0.01
+    };
+  }
+
+  function current(){ return {w:Number(weight.value),b:Number(bias.value)}; }
+
+  function setParams(w,b,record=true){
+    w=clamp(w,wBounds.min,wBounds.max);
+    b=clamp(b,bBounds.min,bBounds.max);
+    weight.value=w;
+    weightNum.value=w.toFixed(2);
+    bias.value=b;
+    biasNum.value=b.toFixed(2);
+    if(record){
+      const last=path[path.length-1];
+      if(!last || Math.hypot(last.w-w,last.b-b)>0.004) path.push({w,b});
+      if(path.length>250) path.shift();
+    }
+    render();
+  }
+
+  function syncPair(rangeEl,numEl,decimals,callback){
+    rangeEl.addEventListener("input",()=>{
+      numEl.value=Number(rangeEl.value).toFixed(decimals);
+      callback();
+    });
+    numEl.addEventListener("input",()=>{
+      if(numEl.value==="") return;
+      const value=Number(numEl.value);
+      if(!Number.isFinite(value)) return;
+      rangeEl.value=clamp(value,Number(rangeEl.min),Number(rangeEl.max));
+      callback();
+    });
+  }
+
+  function resizeCanvas(canvas,ctx){
+    const rect=canvas.getBoundingClientRect();
+    const dpr=Math.min(window.devicePixelRatio || 1,2);
+    const w=Math.max(320,Math.round(rect.width*dpr));
+    const h=Math.max(240,Math.round(rect.height*dpr));
+    if(canvas.width!==w || canvas.height!==h){
+      canvas.width=w;canvas.height=h;
+    }
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    return {w:rect.width,h:rect.height,dpr};
+  }
+
+  function theme(){
+    return {
+      ink:"#172033",muted:"#667085",grid:"#e4e9f0",accent:"#2563eb",
+      accent2:"#7c3aed",class0:"#c2410c",class1:"#138a5b",gap:"#dc2626"
+    };
+  }
+
+  function dataRanges(){
+    const xs=points.map(p=>p.x);
+    const min=Math.min(...xs),max=Math.max(...xs);
+    const span=Math.max(1,max-min);
+    return {xMin:min-0.09*span,xMax:max+0.09*span,yMin:-0.10,yMax:1.10};
+  }
+
+  function formatTick(v){
+    if(Math.abs(v)>=10) return v.toFixed(0);
+    if(Math.abs(v)>=1) return v.toFixed(1).replace(".0","");
+    return v.toFixed(2).replace(/0+$/,"").replace(/\.$/,"");
+  }
+
+  function niceTicks(min,max,count=6){
+    const raw=(max-min)/count;
+    const pow=Math.pow(10,Math.floor(Math.log10(raw)));
+    const n=raw/pow;
+    const step=(n<1.5?1:n<3?2:n<7?5:10)*pow;
+    const start=Math.ceil(min/step)*step;
+    const ticks=[];
+    for(let v=start;v<=max+step*0.2;v+=step) ticks.push(Number(v.toFixed(10)));
+    return ticks;
+  }
+
+  function drawAxes(ctx,w,h,xMap,yMap,xTicks,yTicks,xLabel,yLabel){
+    const c=theme();
+    ctx.save();
+    ctx.strokeStyle=c.grid;ctx.fillStyle=c.muted;ctx.lineWidth=1;ctx.font="12px system-ui";
+    xTicks.forEach(t=>{
+      const x=xMap(t);
+      ctx.beginPath();ctx.moveTo(x,pad.top);ctx.lineTo(x,h-pad.bottom);ctx.stroke();
+      ctx.textAlign="center";ctx.fillText(formatTick(t),x,h-pad.bottom+19);
+    });
+    yTicks.forEach(t=>{
+      const y=yMap(t);
+      ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(w-pad.right,y);ctx.stroke();
+      ctx.textAlign="right";ctx.fillText(formatTick(t),pad.left-8,y+4);
+    });
+    ctx.strokeStyle=c.ink;ctx.lineWidth=1.2;
+    ctx.beginPath();ctx.moveTo(pad.left,pad.top);ctx.lineTo(pad.left,h-pad.bottom);ctx.lineTo(w-pad.right,h-pad.bottom);ctx.stroke();
+    ctx.fillStyle=c.ink;ctx.textAlign="center";ctx.font="13px system-ui";
+    ctx.fillText(xLabel,(pad.left+w-pad.right)/2,h-9);
+    ctx.save();ctx.translate(15,(pad.top+h-pad.bottom)/2);ctx.rotate(-Math.PI/2);ctx.fillText(yLabel,0,0);ctx.restore();
+    ctx.restore();
+  }
+
+  function drawData(){
+    const {w:cssW,h:cssH}=resizeCanvas(dataCanvas,dctx);
+    const c=theme();
+    dctx.clearRect(0,0,cssW,cssH);
+    const r=dataRanges();
+    const xMap=x=>pad.left+(x-r.xMin)/(r.xMax-r.xMin)*(cssW-pad.left-pad.right);
+    const yMap=y=>cssH-pad.bottom-(y-r.yMin)/(r.yMax-r.yMin)*(cssH-pad.top-pad.bottom);
+    drawAxes(dctx,cssW,cssH,xMap,yMap,niceTicks(r.xMin,r.xMax,7),[0,0.25,0.5,0.75,1],"Input, x","Probability / class");
+
+    const {w,b}=current();
+
+    if(showBoundary.checked){
+      dctx.save();
+      dctx.strokeStyle="#7c3aed";dctx.lineWidth=1.6;dctx.setLineDash([6,5]);
+      dctx.beginPath();dctx.moveTo(pad.left,yMap(0.5));dctx.lineTo(cssW-pad.right,yMap(0.5));dctx.stroke();
+      dctx.fillStyle="#7c3aed";dctx.font="700 11px system-ui";dctx.textAlign="right";
+      dctx.fillText("classification threshold p = 0.5",cssW-pad.right-4,yMap(0.5)-7);
+
+      if(Math.abs(w)>1e-8){
+        const boundary=-b/w;
+        if(boundary>=r.xMin && boundary<=r.xMax){
+          dctx.beginPath();dctx.moveTo(xMap(boundary),pad.top);dctx.lineTo(xMap(boundary),cssH-pad.bottom);dctx.stroke();
+          dctx.fillStyle="#7c3aed";dctx.textAlign="left";
+          dctx.fillText(`x* = ${boundary.toFixed(2)}`,xMap(boundary)+6,pad.top+15);
+        }
+      }
+      dctx.restore();
+    }
+
+    if(showGaps.checked){
+      dctx.save();
+      dctx.strokeStyle=c.gap;dctx.globalAlpha=.55;dctx.lineWidth=1.5;
+      for(const point of points){
+        const p=sigmoid(w*point.x+b);
+        dctx.beginPath();dctx.moveTo(xMap(point.x),yMap(point.y));dctx.lineTo(xMap(point.x),yMap(p));dctx.stroke();
+      }
+      dctx.restore();
+    }
+
+    dctx.save();
+    dctx.strokeStyle=c.accent;dctx.lineWidth=3;
+    dctx.beginPath();
+    const samples=240;
+    for(let i=0;i<=samples;i++){
+      const x=r.xMin+i/samples*(r.xMax-r.xMin);
+      const p=sigmoid(w*x+b);
+      if(i===0) dctx.moveTo(xMap(x),yMap(p)); else dctx.lineTo(xMap(x),yMap(p));
+    }
+    dctx.stroke();
+
+    if(showGeometry.checked && r.xMin<=0 && r.xMax>=0){
+      const p0=sigmoid(b);
+      dctx.strokeStyle="#9aa7ba";dctx.lineWidth=1.2;dctx.setLineDash([5,5]);
+      dctx.beginPath();dctx.moveTo(xMap(0),pad.top);dctx.lineTo(xMap(0),cssH-pad.bottom);dctx.stroke();
+      dctx.setLineDash([]);
+      dctx.fillStyle=c.accent2;dctx.strokeStyle="#fff";dctx.lineWidth=2;
+      dctx.beginPath();dctx.arc(xMap(0),yMap(p0),6,0,Math.PI*2);dctx.fill();dctx.stroke();
+      dctx.fillStyle=c.accent2;dctx.font="700 12px system-ui";dctx.textAlign="left";
+      dctx.fillText(`p(0) = σ(b) = ${p0.toFixed(2)}`,xMap(0)+9,yMap(p0)-8);
+
+      const xA=clamp(-0.6,r.xMin,r.xMax);
+      const xB=clamp(0.6,r.xMin,r.xMax);
+      if(xB-xA>0.3){
+        const zA=w*xA+b,zB=w*xB+b;
+        dctx.fillStyle=c.muted;dctx.font="700 11px system-ui";dctx.textAlign="left";
+        dctx.fillText(`A +1 change in x changes log-odds by w = ${w.toFixed(2)}`,pad.left+9,cssH-pad.bottom-10);
+        void zA;void zB;
+      }
+    }
+
+    for(const point of points){
+      const px=xMap(point.x),py=yMap(point.y);
+      dctx.fillStyle=point.y===1?c.class1:c.class0;
+      dctx.beginPath();dctx.arc(px,py,5.4,0,Math.PI*2);dctx.fill();
+      dctx.strokeStyle="#fff";dctx.lineWidth=1.6;dctx.stroke();
+    }
+
+    dctx.fillStyle=c.accent;dctx.font="700 13px system-ui";dctx.textAlign="left";
+    const sign=b>=0?"+":"−";
+    dctx.fillText(`P(y=1|x) = σ(${w.toFixed(2)}x ${sign} ${Math.abs(b).toFixed(2)})`,pad.left+9,pad.top+18);
+    dctx.restore();
+  }
+
+  function lossColor(t){
+    t=clamp(t,0,1);
+    const stops=[
+      [244,247,251],[213,226,255],[160,190,246],[124,104,220],[78,45,145],[42,27,73]
+    ];
+    const q=t*(stops.length-1);
+    const i=Math.min(stops.length-2,Math.floor(q));
+    const f=q-i;
+    const a=stops[i],b=stops[i+1];
+    return [
+      Math.round(a[0]+f*(b[0]-a[0])),
+      Math.round(a[1]+f*(b[1]-a[1])),
+      Math.round(a[2]+f*(b[2]-a[2]))
+    ];
+  }
+
+  function buildLandscape(cssW,cssH,dpr){
+    const plotW=Math.max(1,Math.floor((cssW-pad.left-pad.right)*dpr));
+    const plotH=Math.max(1,Math.floor((cssH-pad.top-pad.bottom)*dpr));
+    const pointKey=points.map(p=>`${p.x.toFixed(4)}:${p.y}`).join(",");
+    const key=[plotW,plotH,pointKey].join("|");
+    if(landscapeCache && landscapeCache.key===key) return landscapeCache;
+
+    const off=document.createElement("canvas");
+    off.width=plotW;off.height=plotH;
+    const octx=off.getContext("2d");
+    const image=octx.createImageData(plotW,plotH);
+    const minLoss=crossEntropy(optimum.w,optimum.b);
+    const corners=[
+      crossEntropy(wBounds.min,bBounds.min),crossEntropy(wBounds.min,bBounds.max),
+      crossEntropy(wBounds.max,bBounds.min),crossEntropy(wBounds.max,bBounds.max)
+    ];
+    const maxLoss=Math.max(...corners,minLoss+0.5);
+    const logDen=Math.log1p(maxLoss-minLoss);
+
+    for(let py=0;py<plotH;py++){
+      const b=bBounds.max-(py/Math.max(1,plotH-1))*(bBounds.max-bBounds.min);
+      for(let px=0;px<plotW;px++){
+        const w=wBounds.min+(px/Math.max(1,plotW-1))*(wBounds.max-wBounds.min);
+        const value=crossEntropy(w,b);
+        const t=Math.log1p(Math.max(0,value-minLoss))/Math.max(logDen,1e-9);
+        const col=lossColor(t);
+        const idx=(py*plotW+px)*4;
+        image.data[idx]=col[0];image.data[idx+1]=col[1];image.data[idx+2]=col[2];image.data[idx+3]=255;
+      }
+    }
+    octx.putImageData(image,0,0);
+    landscapeCache={key,off,minLoss,maxLoss,dpr};
+    return landscapeCache;
+  }
+
+  function marchingContours(ctx,xMap,yMap){
+    const minLoss=crossEntropy(optimum.w,optimum.b);
+    const levels=[0.015,0.035,0.07,0.14,0.28,0.55,1.0,1.8,3.0].map(v=>minLoss+v);
+    const nx=76,ny=76;
+    const vals=Array.from({length:ny+1},()=>Array(nx+1));
+    for(let j=0;j<=ny;j++){
+      const b=bBounds.min+j/ny*(bBounds.max-bBounds.min);
+      for(let i=0;i<=nx;i++){
+        const w=wBounds.min+i/nx*(wBounds.max-wBounds.min);
+        vals[j][i]=crossEntropy(w,b);
+      }
+    }
+
+    ctx.save();
+    ctx.strokeStyle="rgba(255,255,255,.80)";ctx.lineWidth=1.15;
+    levels.forEach(level=>{
+      ctx.beginPath();
+      for(let j=0;j<ny;j++){
+        for(let i=0;i<nx;i++){
+          const w0=wBounds.min+i/nx*(wBounds.max-wBounds.min);
+          const w1=wBounds.min+(i+1)/nx*(wBounds.max-wBounds.min);
+          const b0=bBounds.min+j/ny*(bBounds.max-bBounds.min);
+          const b1=bBounds.min+(j+1)/ny*(bBounds.max-bBounds.min);
+          const v0=vals[j][i],v1=vals[j][i+1],v2=vals[j+1][i+1],v3=vals[j+1][i];
+          const pts=[];
+          function cross(va,vb,xa,ya,xb,yb){
+            if((va<level && vb>=level)||(va>=level && vb<level)){
+              const t=(level-va)/(vb-va);
+              pts.push([xa+t*(xb-xa),ya+t*(yb-ya)]);
+            }
+          }
+          cross(v0,v1,w0,b0,w1,b0);
+          cross(v1,v2,w1,b0,w1,b1);
+          cross(v2,v3,w1,b1,w0,b1);
+          cross(v3,v0,w0,b1,w0,b0);
+          if(pts.length===2){
+            ctx.moveTo(xMap(pts[0][0]),yMap(pts[0][1]));
+            ctx.lineTo(xMap(pts[1][0]),yMap(pts[1][1]));
+          }else if(pts.length===4){
+            ctx.moveTo(xMap(pts[0][0]),yMap(pts[0][1]));
+            ctx.lineTo(xMap(pts[1][0]),yMap(pts[1][1]));
+            ctx.moveTo(xMap(pts[2][0]),yMap(pts[2][1]));
+            ctx.lineTo(xMap(pts[3][0]),yMap(pts[3][1]));
+          }
+        }
+      }
+      ctx.stroke();
+    });
+    ctx.restore();
+  }
+
+  function drawLoss(){
+    const {w:cssW,h:cssH,dpr}=resizeCanvas(lossCanvas,lctx);
+    const c=theme();
+    lctx.clearRect(0,0,cssW,cssH);
+    const xMap=w=>pad.left+(w-wBounds.min)/(wBounds.max-wBounds.min)*(cssW-pad.left-pad.right);
+    const yMap=b=>cssH-pad.bottom-(b-bBounds.min)/(bBounds.max-bBounds.min)*(cssH-pad.top-pad.bottom);
+
+    const land=buildLandscape(cssW,cssH,dpr);
+    lctx.drawImage(land.off,0,0,land.off.width,land.off.height,pad.left,pad.top,cssW-pad.left-pad.right,cssH-pad.top-pad.bottom);
+    marchingContours(lctx,xMap,yMap);
+    drawAxes(lctx,cssW,cssH,xMap,yMap,niceTicks(wBounds.min,wBounds.max,7),niceTicks(bBounds.min,bBounds.max,7),"Weight, w","Bias, b");
+
+    if(showPath.checked && path.length>1){
+      lctx.save();
+      lctx.strokeStyle="#fff";lctx.lineWidth=4;lctx.globalAlpha=.85;
+      lctx.beginPath();lctx.moveTo(xMap(path[0].w),yMap(path[0].b));
+      for(let i=1;i<path.length;i++) lctx.lineTo(xMap(path[i].w),yMap(path[i].b));
+      lctx.stroke();
+      lctx.strokeStyle=c.accent2;lctx.lineWidth=2;lctx.globalAlpha=1;
+      lctx.beginPath();lctx.moveTo(xMap(path[0].w),yMap(path[0].b));
+      for(let i=1;i<path.length;i++) lctx.lineTo(xMap(path[i].w),yMap(path[i].b));
+      lctx.stroke();
+      lctx.restore();
+    }
+
+    if(showOptimum.checked){
+      const ox=xMap(optimum.w),oy=yMap(optimum.b);
+      lctx.save();
+      lctx.strokeStyle="#fff";lctx.lineWidth=5;
+      lctx.beginPath();lctx.moveTo(ox-8,oy);lctx.lineTo(ox+8,oy);lctx.moveTo(ox,oy-8);lctx.lineTo(ox,oy+8);lctx.stroke();
+      lctx.strokeStyle=c.class1;lctx.lineWidth=2.5;
+      lctx.beginPath();lctx.moveTo(ox-8,oy);lctx.lineTo(ox+8,oy);lctx.moveTo(ox,oy-8);lctx.lineTo(ox,oy+8);lctx.stroke();
+      lctx.fillStyle="#fff";lctx.font="700 12px system-ui";lctx.textAlign="left";
+      lctx.fillText(optimum.atBoundary?"best visible":"minimum",ox+10,oy-8);
+      lctx.restore();
+    }
+
+    const {w,b}=current();
+    const x=xMap(w),y=yMap(b);
+    lctx.save();
+    lctx.fillStyle=c.accent;lctx.strokeStyle="#fff";lctx.lineWidth=3;
+    lctx.beginPath();lctx.arc(x,y,7,0,Math.PI*2);lctx.fill();lctx.stroke();
+    lctx.fillStyle="#fff";lctx.font="700 12px system-ui";lctx.textAlign="left";
+    const lx=clamp(x+10,pad.left+5,cssW-pad.right-105);
+    const ly=clamp(y-10,pad.top+15,cssH-pad.bottom-5);
+    lctx.fillText(`(${w.toFixed(2)}, ${b.toFixed(2)})`,lx,ly);
+    lctx.restore();
+  }
+
+  function confusionCounts(w,b){
+    let tn=0,fp=0,fn=0,tp=0;
+    for(const point of points){
+      const predicted=sigmoid(w*point.x+b)>=0.5?1:0;
+      if(point.y===1 && predicted===1) tp++;
+      else if(point.y===1 && predicted===0) fn++;
+      else if(point.y===0 && predicted===1) fp++;
+      else tn++;
+    }
+    return {tn,fp,fn,tp};
+  }
+
+  function safeRatio(numerator,denominator){
+    return denominator>0?numerator/denominator:null;
+  }
+
+  function formatPercent(value){
+    return value===null?"—":`${(100*value).toFixed(0)}%`;
+  }
+
+  function updateMetrics(){
+    const {w,b}=current();
+    const L=crossEntropy(w,b);
+    const g=gradient(w,b);
+    const gn=Math.hypot(g.w,g.b);
+    const boundary=Math.abs(w)>1e-8?-b/w:null;
+    const cm=confusionCounts(w,b);
+    const total=cm.tn+cm.fp+cm.fn+cm.tp;
+    const acc=safeRatio(cm.tp+cm.tn,total);
+    const precision=safeRatio(cm.tp,cm.tp+cm.fp);
+    const recall=safeRatio(cm.tp,cm.tp+cm.fn);
+    const f1=(precision!==null && recall!==null && precision+recall>0)
+      ?2*precision*recall/(precision+recall)
+      :null;
+
+    lossMetric.textContent=L.toFixed(3);
+    accuracyMetric.textContent=formatPercent(acc);
+    weightMetric.textContent=w.toFixed(2);
+    biasMetric.textContent=b.toFixed(2);
+    boundaryMetric.textContent=boundary===null?"none":boundary.toFixed(2);
+    gradMetric.textContent=gn.toFixed(3);
+
+    tnCount.textContent=cm.tn;
+    fpCount.textContent=cm.fp;
+    fnCount.textContent=cm.fn;
+    tpCount.textContent=cm.tp;
+    cmAccuracy.textContent=formatPercent(acc);
+    cmPrecision.textContent=formatPercent(precision);
+    cmRecall.textContent=formatPercent(recall);
+    cmF1.textContent=formatPercent(f1);
+
+    const errors=cm.fp+cm.fn;
+    if(errors===0){
+      cmNote.innerHTML="<strong>All observations are currently classified correctly.</strong> Cross-entropy can still improve by assigning more confident probabilities to the correct classes.";
+    }else{
+      cmNote.innerHTML=`The current boundary misclassifies <strong>${errors}</strong> of <strong>${total}</strong> observations: ${cm.fp} false positive${cm.fp===1?"":"s"} and ${cm.fn} false negative${cm.fn===1?"":"s"}.`;
+    }
+  }
+
+  function render(){
+    drawData();
+    drawLoss();
+    updateMetrics();
+  }
+
+  function oneStep(){
+    const {w,b}=current();
+    const g=gradient(w,b);
+    const lr=Number(learningRate.value);
+    setParams(w-lr*g.w,b-lr*g.b,true);
+  }
+
+  function stopRun(){
+    running=false;
+    runBtn.textContent="Run gradient descent";
+    if(animationId!==null) cancelAnimationFrame(animationId);
+    animationId=null;
+  }
+
+  function run(){
+    if(running){stopRun();return;}
+    running=true;runBtn.textContent="Pause descent";
+    let last=0;
+    function tick(ts){
+      if(!running) return;
+      if(ts-last>90){
+        oneStep();
+        last=ts;
+        const {w,b}=current();
+        const g=gradient(w,b);
+        if(Math.hypot(g.w,g.b)<0.0025 ||
+           ((Math.abs(w)>=5.999 || Math.abs(b)>=5.999) && optimum.atBoundary)){
+          stopRun();return;
+        }
+      }
+      animationId=requestAnimationFrame(tick);
+    }
+    animationId=requestAnimationFrame(tick);
+  }
+
+  function resetParams(){
+    stopRun();path=[];setParams(-1.2,2.2,false);
+  }
+
+  function eventToParam(evt){
+    const rect=lossCanvas.getBoundingClientRect();
+    const x=evt.clientX-rect.left,y=evt.clientY-rect.top;
+    const plotW=rect.width-pad.left-pad.right;
+    const plotH=rect.height-pad.top-pad.bottom;
+    const w=wBounds.min+(x-pad.left)/plotW*(wBounds.max-wBounds.min);
+    const b=bBounds.max-(y-pad.top)/plotH*(bBounds.max-bBounds.min);
+    return {w:clamp(w,wBounds.min,wBounds.max),b:clamp(b,bBounds.min,bBounds.max)};
+  }
+
+  syncPair(weight,weightNum,2,()=>{
+    stopRun();
+    const p=current();
+    const last=path[path.length-1];
+    if(!last || Math.hypot(last.w-p.w,last.b-p.b)>.02) path.push(p);
+    render();
+  });
+  syncPair(bias,biasNum,2,()=>{
+    stopRun();
+    const p=current();
+    const last=path[path.length-1];
+    if(!last || Math.hypot(last.w-p.w,last.b-p.b)>.02) path.push(p);
+    render();
+  });
+  syncPair(learningRate,learningRateNum,2,()=>render());
+  syncPair(overlap,overlapNum,2,()=>{});
+
+  showGaps.addEventListener("change",render);
+  showBoundary.addEventListener("change",render);
+  showGeometry.addEventListener("change",render);
+  showOptimum.addEventListener("change",render);
+  showPath.addEventListener("change",render);
+  stepBtn.addEventListener("click",()=>{stopRun();oneStep();});
+  runBtn.addEventListener("click",run);
+  bestBtn.addEventListener("click",()=>{
+    stopRun();path.push(current());setParams(optimum.w,optimum.b,true);showOptimum.checked=true;
+  });
+  resetBtn.addEventListener("click",resetParams);
+  newDataBtn.addEventListener("click",generateData);
+  applyPointsBtn.addEventListener("click",applyTypedPoints);
+  loadCurrentBtn.addEventListener("click",()=>{
+    pointsToText();setEditorFeedback("Current observations restored in the editor.","good");
+  });
+  examplePointsBtn.addEventListener("click",()=>{
+    pointsInput.value=[
+      "-3.0, 0",
+      "-2.5, 0",
+      "-2.0, 0",
+      "-1.5, 0",
+      "-1.0, 1",
+      "-0.6, 0",
+      "-0.2, 0",
+      "0.2, 1",
+      "0.7, 0",
+      "1.1, 1",
+      "1.6, 1",
+      "2.1, 1",
+      "2.6, 1",
+      "3.0, 1"
+    ].join("\n");
+    setEditorFeedback("Example loaded. Press Apply points.","");
+  });
+  pointsInput.addEventListener("keydown",evt=>{
+    if((evt.ctrlKey || evt.metaKey) && evt.key==="Enter"){
+      evt.preventDefault();applyTypedPoints();
+    }
+  });
+
+  lossCanvas.addEventListener("pointerdown",evt=>{
+    draggingLoss=true;lossCanvas.setPointerCapture(evt.pointerId);stopRun();
+    const p=eventToParam(evt);setParams(p.w,p.b,true);
+  });
+  lossCanvas.addEventListener("pointermove",evt=>{
+    if(!draggingLoss) return;
+    const p=eventToParam(evt);setParams(p.w,p.b,true);
+  });
+  lossCanvas.addEventListener("pointerup",evt=>{
+    draggingLoss=false;
+    try{lossCanvas.releasePointerCapture(evt.pointerId);}catch(e){}
+  });
+  lossCanvas.addEventListener("pointercancel",()=>{draggingLoss=false;});
+
+  window.addEventListener("resize",()=>{
+    landscapeCache=null;render();
+  });
+
+  generateData();
+})();
+</script>
+</body>
+</html>
